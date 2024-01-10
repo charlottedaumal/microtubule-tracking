@@ -54,19 +54,19 @@
         <contributor>
             <name>Daniel Sage</name>
             <url>http://bigwww.epfl.ch/sage/</url>
-            <roles><role>debugger</role></roles>
+            <roles><role>founder</role></roles>
             <properties><id>dasv74</id></properties>
         </contributor>
         <contributor>
             <name>Arne Seitz</name>
             <url>https://www.epfl.ch/research/facilities/ptbiop/staff/</url>
-            <roles><role>debugger</role></roles>
+            <roles><role>founder</role></roles>
             <properties><id>ArneS70</id></properties>
         </contributor>
         <contributor>
             <name>Rémy Dornier</name>
             <url>https://www.epfl.ch/research/facilities/ptbiop/staff/</url>
-            <roles><role>debugger</role></roles>
+            <roles><role>founder</role></roles>
             <properties><id>RDornier</id></properties>
         </contributor>
     </contributors>
@@ -84,11 +84,14 @@
     </issueManagement>
 
     <scm>
+        <connection>scm:git:git://github.com/</connection>
+        <developerConnection>scm:git:git@github.com:</developerConnection>
         <tag>HEAD</tag>
+        <url>https://github.com/</url>
     </scm>
 
     <ciManagement>
-        <system>GitLab Actions</system>
+        <system>None</system>
     </ciManagement>
 
     <repositories>

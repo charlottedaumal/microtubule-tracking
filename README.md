@@ -1,5 +1,5 @@
 <p style="text-align:left;">
-  <img src="files/eye image.png" width="5%">
+  <img src="files/eye-image.png" width="5%">
     EPFL - BIO-410 - BIOIMAGE INFORMATICS
     <span style="float:right;">
         Spring 2024

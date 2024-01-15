@@ -1,10 +1,9 @@
-<p style="text-align:left;">
-  <img src="files/eye-image.png" width="5%">
-    EPFL - BIO-410 - BIOIMAGE INFORMATICS
-    <span style="float:right;">
-        Spring 2024
-    </span>
-</p>
+
+<img src="icons/bii-banner.png" alt="image" style="width:auto;height:30px;">
+<hr>
+
+### **[Moodle BIO-410](https://moodle.epfl.ch/course/view.php?id=15721)**  <img src="icons/epfl-logo.png" alt="image" style="float:right; width:auto;height:30px;">
+
 
 #  Project Template
 ## Description
@@ -19,7 +18,7 @@ repository without modifying the parent repository.
 1. Click on the ``Fork`` button
 
 <p style="text-align:center;">
-  <img src="files/fork-window.png" width="90%">
+  <img src="icons/fork-window.png" width="90%">
 </p>
 
 
@@ -36,7 +35,7 @@ Now the copied repository is owned by you.
 3. Enter `` git clone `` and do a right click > paste to paste the repository URL.
 
 <p style="text-align:center;">
-    <img src="files/git-clone-command.png" width="80%">
+    <img src="icons/git-clone-command.png" width="80%">
 </p>
 
 ### Open the project in intelliJ
@@ -45,7 +44,7 @@ Now the copied repository is owned by you.
 3. Click on ``Apply`` and ``OK``
 
 <p style="text-align:center;">
-    <img src="files/project-structure.png" width="80%">
+    <img src="icons/project-structure.png" width="80%">
 </p>
 
 ### Modify the pom.xml
@@ -65,7 +64,7 @@ Under the maven center, double-click on ``insall``. It generates a ``target`` re
 
 
 <p style="text-align:center;">
-    <img src="files/maven-console.png" width="35%">
+    <img src="icons/maven-console.png" width="35%">
 </p>
 
 >**Do not forget to change the version number in the ``pom.xml``**. Here is some conventions on the version number

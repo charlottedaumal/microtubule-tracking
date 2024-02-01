@@ -1,15 +1,18 @@
-
-<img src="icons/bii-banner.png" alt="image" style="width:auto;height:30px;">
+<img src="icons/bii-banner.png" alt="image" width=auto height=40px>
 <hr>
 
-### **[Moodle BIO-410](https://moodle.epfl.ch/course/view.php?id=15721)**  <img src="icons/epfl-logo.png" alt="image" style="float:right; width:auto;height:30px;">
+### **[Moodle BIO-410](https://moodle.epfl.ch/course/view.php?id=15721)**  <img src="icons/epfl-logo.png" width=auto height=40px alt="image" align="right">
+
+><h3 style="font-weight:500; font-size:1.6em">Project Template</h3>
+>
+>
 
 
-#  Project Template
 ## Description
 This repository aims at giving you the minimal structure for your java project.
 It already contains a pre-filled ``pom.xml`` file and a default package for your code.
-## What to use it ?
+
+## How to use it ?
 ### Fork the repository
 Forking a repository is copying the repository in another account. The copied project is independent
 of the parent repository ; you can then commit, push and pull on the new
@@ -17,9 +20,9 @@ repository without modifying the parent repository.
 
 1. Click on the ``Fork`` button
 
-<p style="text-align:center;">
+<div align="center">
   <img src="icons/fork-window.png" width="90%">
-</p>
+</div>
 
 
 2. On the windows, replace the name by the name of your project
@@ -34,18 +37,18 @@ Now the copied repository is owned by you.
 2. Open a git bash terminal on your computer, at the location where you would like to clone the repo.
 3. Enter `` git clone `` and do a right click > paste to paste the repository URL.
 
-<p style="text-align:center;">
+<div align="center">
     <img src="icons/git-clone-command.png" width="80%">
-</p>
+</div>
 
 ### Open the project in intelliJ
 1. Open your project
 2. Under ``File -> Project structure``, select ``JDK 1.8`` and language level ``8``
 3. Click on ``Apply`` and ``OK``
 
-<p style="text-align:center;">
+<div align="center">
     <img src="icons/project-structure.png" width="80%">
-</p>
+</div>
 
 ### Modify the pom.xml
 1. Replace ``artifactID`` by the name of your project. No spaces are allowed ; only separate words by hyphens ``-``.
@@ -63,9 +66,9 @@ Populate it and create new classes with you own code related to your project.
 Under the maven center, double-click on ``insall``. It generates a ``target`` repository inside which you'll find your ``.jar`` file.
 
 
-<p style="text-align:center;">
+<div align="center">
     <img src="icons/maven-console.png" width="35%">
-</p>
+</div>
 
 >**Do not forget to change the version number in the ``pom.xml``**. Here is some conventions on the version number
 >- The version number is composed of 3 numbers, separated by a dot ``1.0.2``

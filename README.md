@@ -1,7 +1,7 @@
-<img src="icons/bii-banner.png" alt="image" width=auto height=40px>
+<img src="icons/bii-banner.png" alt="image" height=40px>
 <hr>
 
-### **[Moodle BIO-410](https://moodle.epfl.ch/course/view.php?id=15721)**  <img src="icons/epfl-logo.png" width=auto height=40px alt="image" align="right">
+### **[Moodle BIO-410](https://moodle.epfl.ch/course/view.php?id=15721)**  <img src="icons/epfl-logo.png" height=40px alt="image" align="right">
 
 ><h3 style="font-weight:500; font-size:1.6em">Project Template</h3>
 >

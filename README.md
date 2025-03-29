@@ -1,19 +1,22 @@
 <img src="icons/bii-banner.png" alt="image" height=40px>
-<hr>
+<img src="icons/epfl-logo.png" height=40px alt="image" align="right">
 
-### **[Moodle BIO-410](https://moodle.epfl.ch/course/view.php?id=15721)**  <img src="icons/epfl-logo.png" height=40px alt="image" align="right">
-
-><h3 style="font-weight:500; font-size:1.6em">Project Template</h3>
->
->
+# Project Template
 
 
 ## Description
 This repository aims at giving you the minimal structure for your java project.
 It already contains a pre-filled ``pom.xml`` file and a default package for your code.
 
+The project assignments are all listed in the [Project folder](https://gitlab.epfl.ch/bio-410/projects). 
+
 ## How to use it ?
 ### Fork the repository
+
+> **WARNING**: Only ONE group member should fork this project. The other members don't have to
+> fork it ; they have to clone the forked project only. For that, the student
+> who fork this project has to give teammates access to the forked project.
+
 Forking a repository is copying the repository in another account. The copied project is independent
 of the parent repository ; you can then commit, push and pull on the new
 repository without modifying the parent repository.

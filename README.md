@@ -15,7 +15,7 @@ The project assignments are all listed in the [Project folder](https://gitlab.ep
 
 > **WARNING**: Only ONE group member should fork this project. The other members don't have to
 > fork it ; they have to clone the forked project only. For that, the student
-> who fork this project has to give teammates access to the forked project.
+> who forks this project has to give teammates access to the forked project (on the left-hand side menus, go to ``Manage -> Members``). 
 
 Forking a repository is copying the repository in another account. The copied project is independent
 of the parent repository ; you can then commit, push and pull on the new

@@ -43,11 +43,13 @@ public class ProjectCommand implements Command {
 			ImageProcessor normed_dog = normalisation(dog);
 			outputStack.addSlice(normed_dog);
 		}
-		//new ImagePlus("DoG Stack", outputStack).show();
+		// new ImagePlus("DoG Stack", outputStack).show();
 
 		// Enhance contrast on DoG image
 		ImagePlus dogProcessedImp = new ImagePlus("Processed DoG Stack", outputStack);
-		IJ.run(dogProcessedImp, "Enhance Contrast", "saturated=0.35 ");
+		double max_pixel_value = dogProcessedImp.getStatistics().max ;
+		dogProcessedImp.setDisplayRange(0, max_pixel_value);
+		dogProcessedImp.updateAndDraw();
 		dogProcessedImp.show();
 //
 //		// Apply median filter
@@ -116,6 +118,7 @@ public class ProjectCommand implements Command {
 		GaussianBlur3D.blur(g1, sigma1, sigma1, 0);
 		GaussianBlur3D.blur(g2, sigma2, sigma2, 0);
 		ImagePlus dog = ImageCalculator.run(g2, g1, "Subtract create stack");
+
 		return dog.getProcessor();
 	}
 
@@ -136,6 +139,8 @@ public class ProjectCommand implements Command {
 //			IJ.run(inFocusNorm[t], "Apply LUT", "slice");
 		return frame.getProcessor();
 	}
+
+
 	// Temporal median projection computation... need to work a bit more on this to be sure
 	// it is what we want (not sure about that after reading some info, it might be better to have
 	// a temporal median filtering (with a time window radius)

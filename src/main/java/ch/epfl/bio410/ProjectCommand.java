@@ -6,20 +6,22 @@ import ij.ImageStack;
 import ij.io.OpenDialog;
 import ij.plugin.GaussianBlur3D;
 import ij.plugin.ImageCalculator;
-import ij.plugin.ZProjector; // for median filtering
-import ij.process.Blitter; // for median filtering
+import ij.process.FloatProcessor; // for temporal median filtering
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
+import java.util.ArrayList; // for temporal median filtering
+import java.util.Arrays; // for temporal median filtering
+import java.util.List; // for temporal median filtering
+
 
 @Plugin(type = Command.class, menuPath = "Plugins>BII>Microtubule Gang")
 public class ProjectCommand implements Command {
 
 	public void run() {
-//		IJ.run(imp, "32-bit", "");
 
 		// Prompt the user to select a file
 		OpenDialog fileChooser = new OpenDialog("Select a file", null);
@@ -36,7 +38,6 @@ public class ProjectCommand implements Command {
 		int nFrames = imp.getNFrames();
 		ImageStack outputStack = new ImageStack(imp.getWidth(), imp.getHeight());
 
-
 		for (int t = 0; t < nFrames; t++) {
 			imp.setPosition(1, 1, 1 + t);
 			ImageProcessor dog = dog(imp.getProcessor(), 5, 1.25);
@@ -47,35 +48,32 @@ public class ProjectCommand implements Command {
 
 		// Enhance contrast on DoG image
 		ImagePlus dogProcessedImp = new ImagePlus("Processed DoG Stack", outputStack);
-		double max_pixel_value = dogProcessedImp.getStatistics().max ;
-		dogProcessedImp.setDisplayRange(0, max_pixel_value);
+		double max_pixel_value_1 = dogProcessedImp.getStatistics().max ;
+		dogProcessedImp.setDisplayRange(0, max_pixel_value_1);
 		dogProcessedImp.updateAndDraw();
 		dogProcessedImp.show();
-//
-//		// Apply median filter
-//		ImagePlus medianImp = median(imp, "Median Stack");
-//		// medianImp.show();
-//
-//		// Enhance contrast on median filtered image
-//		ImagePlus medianProcessedImp = medianImp.duplicate();
-//		medianProcessedImp.setTitle("Processed Median Stack");
-//		IJ.run(medianProcessedImp, "Enhance Contrast", "saturated=0.35 normalize process_all");
-//		medianProcessedImp.show();
-//
-//		// Apply dog filter on median filtered image
-//		ImageStack dogMedianStack = new ImageStack(medianImp.getWidth(), medianImp.getHeight());
-//		for (int t = 0; t < medianImp.getNSlices(); t++) {
-//			medianImp.setPosition(1, t+1, t+1);
-//			ImageProcessor dog2 = dog(medianImp.getProcessor(), 5, 1.25);
-//			dogMedianStack.addSlice(dog2);
-//		}
-//		// new ImagePlus("DoG on Median Stack", dogMedianStack).show();
-//
-//		// Enhance contrast on DoG and Median filtered image
-//		ImagePlus dogMedianImp = new ImagePlus("Processed DoG on Median Stack", dogMedianStack);
-//		IJ.run(dogMedianImp, "Enhance Contrast", "saturated=0.35 normalize process_all");
-//		dogMedianImp.show();
-//
+
+		//Apply median filter
+		ImagePlus medianImp = temporalMedianFilter(imp, "Median Stack", 15);
+		// medianImp.show();
+
+    	// Apply dog filter on median filtered image
+		ImageStack dogMedianStack = new ImageStack(medianImp.getWidth(), medianImp.getHeight());
+		for (int t = 0; t < medianImp.getNSlices(); t++) {
+			medianImp.setPosition(1, t+1, t+1);
+			ImageProcessor dog2 = dog(medianImp.getProcessor(), 5, 1.25);
+			ImageProcessor normed_dog2 = normalisation(dog2);
+			dogMedianStack.addSlice(normed_dog2);
+		}
+		// new ImagePlus("DoG on Median Stack", dogMedianStack).show();
+
+		// Enhance contrast on DoG and Median filtered image
+		ImagePlus dogMedianProcessedImp = new ImagePlus("Processed DoG on Median Stack", dogMedianStack);
+		double max_pixel_value_2 = dogMedianProcessedImp.getStatistics().max ;
+		dogMedianProcessedImp.setDisplayRange(0, max_pixel_value_2);
+		dogMedianProcessedImp.updateAndDraw();
+		dogMedianProcessedImp.show();
+
 //		// Apply median filter with simple command
 //		ImagePlus median2Imp = imp.duplicate();
 //		median2Imp.setTitle("Median 2 Stack");
@@ -140,28 +138,57 @@ public class ProjectCommand implements Command {
 		return frame.getProcessor();
 	}
 
+	/**
+	 * This method applies a temporal median filter to a 32-bit time series.
+	 * For each frame in the time series, the function collects pixel values from neighboring
+	 * frames within a specified radius, computes the median per pixel across this temporal
+	 * window, and subtracts the median from the current frame.
+	 * Only single-slice, single-channel, 32-bit time series are supported.
+	 *
+	 * @param imp     The ImagePlus input expected to be a 32-bit image with one slice, one channel and multiple frames
+	 * @param title   Title of the output image
+	 * @param radius  Radius of the temporal window in frames (e.g. a radius of 4 uses 9 frame if available)
+	 * @return A new ImagePlus containing the temporally filtered frames
+	 * @throws IllegalArgumentException if the input is not 32-bit float, or has more than one slice or channel
+	 */
+	private ImagePlus temporalMedianFilter(ImagePlus imp, String title, int radius) {
+		// Throw errors the image given is not 32-bit and if there are more than one slice or channels
+		if (imp.getType() != ImagePlus.GRAY32)
+			throw new IllegalArgumentException("Input must be a 32-bit float image stack.");
+		if (imp.getNChannels() != 1 || imp.getNSlices() != 1)
+			throw new IllegalArgumentException("Only single-slice, single-channel time series supported.");
 
-	// Temporal median projection computation... need to work a bit more on this to be sure
-	// it is what we want (not sure about that after reading some info, it might be better to have
-	// a temporal median filtering (with a time window radius)
-	private ImagePlus median(ImagePlus imp, String title) {
-		ImageStack originalStack = imp.getStack().duplicate();
-		ImageStack medianStack = new ImageStack(imp.getWidth(), imp.getHeight());
+		int w = imp.getWidth(), h = imp.getHeight();
+		int nFrames = imp.getNFrames();
+		ImageStack stack = imp.getStack().duplicate();
+		ImageStack result = new ImageStack(w, h);
 
-		// Generate the median projection
-		ZProjector zp = new ZProjector(imp);
-		zp.setMethod(ZProjector.MEDIAN_METHOD);
-		zp.doProjection();
-		ImagePlus medianProjection = zp.getProjection();
-		ImageProcessor medianProc = medianProjection.getProcessor();
+		// Loop over time frames to collect frames in temporal window
+		for (int t = 1; t <= nFrames; t++) {
+			List<float[]> window = new ArrayList<>();
+			for (int dt = -radius; dt <= radius; dt++) {
+				int ti = t + dt;
+				if (ti >= 1 && ti <= nFrames) {
+					int index = imp.getStackIndex(1, 1, ti);
+					window.add((float[]) stack.getProcessor(index).getPixels()); // store frame pixel array
+				}
+			}
 
-		for (int i = 1; i <= imp.getStackSize(); i++) {
-			ImageProcessor slice = originalStack.getProcessor(i).duplicate();
-			slice.copyBits(medianProc, 0, 0, Blitter.SUBTRACT);
-			medianStack.addSlice("slice-" + i, slice);
+			float[] input = (float[]) stack.getProcessor(imp.getStackIndex(1, 1, t)).getPixels();
+			float[] output = new float[w * h];
+
+			// Pixel-wise median subtraction
+			for (int i = 0; i < w * h; i++) {
+				float[] values = new float[window.size()];
+				for (int j = 0; j < window.size(); j++) values[j] = window.get(j)[i];
+				Arrays.sort(values);
+				float median = values[values.length / 2];
+				output[i] = input[i] - median; // here chatgpt advised clipping results to have non-negative values
+				// but I don't see the point in our case : it was done with this command: Math.max(0, input[i] - median)
+			}
+			result.addSlice(new FloatProcessor(w, h, output)); // store the filtered frame
 		}
-
-		return new ImagePlus(title, medianStack);
+		return new ImagePlus(title, result);
 	}
 
 	/**

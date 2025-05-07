@@ -6,6 +6,7 @@ import ij.ImageStack;
 import ij.io.OpenDialog;
 import ij.plugin.GaussianBlur3D;
 import ij.plugin.ImageCalculator;
+import ij.plugin.ZProjector;
 import ij.process.FloatProcessor; // for temporal median filtering
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
@@ -53,26 +54,33 @@ public class ProjectCommand implements Command {
 		dogProcessedImp.updateAndDraw();
 		dogProcessedImp.show();
 
-		//Apply median filter
-		ImagePlus medianImp = temporalMedianFilter(imp, "Median Stack", 15);
-		// medianImp.show();
+		ImagePlus temporalExposure = temporalMaxIntensity(dogProcessedImp, "temporal", 3);
+		double max_pixel_value = temporalExposure.getStatistics().max ;
+		temporalExposure.setDisplayRange(0, max_pixel_value);
+		temporalExposure.updateAndDraw();
+		temporalExposure.show();
 
-    	// Apply dog filter on median filtered image
-		ImageStack dogMedianStack = new ImageStack(medianImp.getWidth(), medianImp.getHeight());
-		for (int t = 0; t < medianImp.getNSlices(); t++) {
-			medianImp.setPosition(1, t+1, t+1);
-			ImageProcessor dog2 = dog(medianImp.getProcessor(), 5, 1.25);
-			ImageProcessor normed_dog2 = normalisation(dog2);
-			dogMedianStack.addSlice(normed_dog2);
-		}
-		// new ImagePlus("DoG on Median Stack", dogMedianStack).show();
 
-		// Enhance contrast on DoG and Median filtered image
-		ImagePlus dogMedianProcessedImp = new ImagePlus("Processed DoG on Median Stack", dogMedianStack);
-		double max_pixel_value_2 = dogMedianProcessedImp.getStatistics().max ;
-		dogMedianProcessedImp.setDisplayRange(0, max_pixel_value_2);
-		dogMedianProcessedImp.updateAndDraw();
-		dogMedianProcessedImp.show();
+//		//Apply median filter
+//		ImagePlus medianImp = temporalMedianFilter(imp, "Median Stack", 15);
+//		// medianImp.show();
+//
+//    	// Apply dog filter on median filtered image
+//		ImageStack dogMedianStack = new ImageStack(medianImp.getWidth(), medianImp.getHeight());
+//		for (int t = 0; t < medianImp.getNSlices(); t++) {
+//			medianImp.setPosition(1, t+1, t+1);
+//			ImageProcessor dog2 = dog(medianImp.getProcessor(), 5, 1.25);
+//			ImageProcessor normed_dog2 = normalisation(dog2);
+//			dogMedianStack.addSlice(normed_dog2);
+//		}
+//		// new ImagePlus("DoG on Median Stack", dogMedianStack).show();
+//
+//		// Enhance contrast on DoG and Median filtered image
+//		ImagePlus dogMedianProcessedImp = new ImagePlus("Processed DoG on Median Stack", dogMedianStack);
+//		double max_pixel_value_2 = dogMedianProcessedImp.getStatistics().max ;
+//		dogMedianProcessedImp.setDisplayRange(0, max_pixel_value_2);
+//		dogMedianProcessedImp.updateAndDraw();
+//		dogMedianProcessedImp.show();
 
 //		// Apply median filter with simple command
 //		ImagePlus median2Imp = imp.duplicate();
@@ -138,6 +146,37 @@ public class ProjectCommand implements Command {
 		return frame.getProcessor();
 	}
 
+	private ImagePlus temporalMaxIntensity(ImagePlus imp, String title, int window){
+		int nFrames = imp.getNSlices();
+		ImagePlus copy = imp.duplicate();
+
+		ImageStack results = new ImageStack(imp.getWidth(), imp.getHeight());
+
+		for(int t=1; t<= nFrames; t++){
+			copy.setPosition(1,1, t);
+			IJ.log("in loop"+t);
+			// Edge Conditions
+			if(t-window < 1){
+				ImageProcessor ip = ZProjector.run(copy,"max",t,t+window).getProcessor();
+				results.addSlice(ip);
+				IJ.log("start"+t);
+			} else if (t+window > nFrames){
+				ImageProcessor ip = ZProjector.run(copy,"max",t-window,t).getProcessor();
+				results.addSlice(ip);
+				IJ.log("end"+t);
+			} else {
+				ImageProcessor ip = ZProjector.run(copy,"max",t-window,t+window).getProcessor();
+				results.addSlice(ip);
+				IJ.log("midlle"+t);
+//				results = ZProjector.run(copy, "max",t-window, t+window);
+			}
+		}
+
+		ImagePlus resultImp = new ImagePlus(title, results);
+//		resultImp.setDimensions(1, 1, nFrames);  // 1 channel, 1 slice, nFrames time points
+
+		return  resultImp;
+	}
 	/**
 	 * This method applies a temporal median filter to a 32-bit time series.
 	 * For each frame in the time series, the function collects pixel values from neighboring

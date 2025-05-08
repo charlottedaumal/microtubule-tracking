@@ -75,6 +75,9 @@ public class ProjectCommand implements Command {
 		PartitionedGraph frames = detect(temporalExposure, sigma, threshold);
 		frames.drawSpots(temporalExposure);
 
+		ImagePlus total_proj = totalProjection(outputstack, "max");
+		total_proj.show();
+
 //		//Apply median filter
 //		ImagePlus medianImp = temporalMedianFilter(imp, "Median Stack", 15);
 //		// medianImp.show();

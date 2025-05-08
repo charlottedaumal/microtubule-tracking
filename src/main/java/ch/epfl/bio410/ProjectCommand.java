@@ -1,5 +1,8 @@
 package ch.epfl.bio410;
 
+import ch.epfl.bio410.graph.PartitionedGraph;
+import ch.epfl.bio410.graph.Spot;
+import ch.epfl.bio410.graph.Spots;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -14,6 +17,7 @@ import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
+import java.awt.*;
 import java.util.ArrayList; // for temporal median filtering
 import java.util.Arrays; // for temporal median filtering
 import java.util.List; // for temporal median filtering
@@ -37,29 +41,39 @@ public class ProjectCommand implements Command {
 		imp.show();
 
 		int nFrames = imp.getNFrames();
-		ImageStack outputStack = new ImageStack(imp.getWidth(), imp.getHeight());
 
-		for (int t = 0; t < nFrames; t++) {
-			imp.setPosition(1, 1, 1 + t);
-			ImageProcessor dog = dog(imp.getProcessor(), 5, 1.25);
-			ImageProcessor normed_dog = normalisation(dog);
-			outputStack.addSlice(normed_dog);
-		}
+		double sigma1=5; double sigma2=1.25;
+//		ImagePlus outputstack = new ImagePlus("Normalised modified Dog", normalisation((dog(imp.getProcessor(), sigma1, sigma2))));
+		ImagePlus result = processStack(imp, ip -> dog(ip, sigma1, sigma2));
+		ImagePlus outputstack = processStack(result, this::normalisation);
+
+//		for (int t = 0; t < nFrames; t++) {
+//			imp.setPosition(1, 1, 1 + t);
+//			ImageProcessor dog = dog(imp.getProcessor(), 5, 1.25);
+//			ImageProcessor normed_dog = normalisation(dog);
+//			outputStack.addSlice(normed_dog);
+//		}
 		// new ImagePlus("DoG Stack", outputStack).show();
 
 		// Enhance contrast on DoG image
-		ImagePlus dogProcessedImp = new ImagePlus("Processed DoG Stack", outputStack);
-		double max_pixel_value_1 = dogProcessedImp.getStatistics().max ;
-		dogProcessedImp.setDisplayRange(0, max_pixel_value_1);
-		dogProcessedImp.updateAndDraw();
-		dogProcessedImp.show();
+//		ImagePlus dogProcessedImp = new ImagePlus("Processed DoG Stack", outputStack);
+		double max_pixel_value_1 = outputstack.getStatistics().max ;
+		outputstack.setDisplayRange(0, max_pixel_value_1);
+		outputstack.updateAndDraw();
+		outputstack.show();
 
-		ImagePlus temporalExposure = temporalMaxIntensity(dogProcessedImp, "temporal", 3);
+		ImagePlus temporalExposure = temporalMaxIntensity(outputstack, "temporal", "sum",3);
 		double max_pixel_value = temporalExposure.getStatistics().max ;
 		temporalExposure.setDisplayRange(0, max_pixel_value);
 		temporalExposure.updateAndDraw();
 		temporalExposure.show();
 
+		int sigma = 1;
+		int threshold = 20;
+
+		// Detection
+		PartitionedGraph frames = detect(temporalExposure, sigma, threshold);
+		frames.drawSpots(temporalExposure);
 
 //		//Apply median filter
 //		ImagePlus medianImp = temporalMedianFilter(imp, "Median Stack", 15);
@@ -128,7 +142,13 @@ public class ProjectCommand implements Command {
 		return dog.getProcessor();
 	}
 
-	// function to normalise image
+
+	/**
+	 * This method normalises the image pixels values for a single processor.
+	 *
+	 * @param ip the image processor to normalise
+	 * @return ImageProcessor normalised
+	 */
 	private ImageProcessor normalisation(ImageProcessor ip){
 		ImagePlus frame = new ImagePlus("f",ip.duplicate());
 		ImageStatistics statistics = frame.getStatistics();
@@ -138,16 +158,49 @@ public class ProjectCommand implements Command {
 		IJ.run(frame, "Subtract...", "value="+mean+" slice");
 		IJ.run(frame, "Divide...", "value="+std+" slice");
 
-////			// Apply contrast enhancement again
-//		ce.stretchHistogram(inFocusNorm[t].getProcessor(), 0.35);
-//		frame.setDisplayRange(-4.30, 8.11);
-//		frame.updateAndDraw();
-//			IJ.run(inFocusNorm[t], "Apply LUT", "slice");
 		return frame.getProcessor();
 	}
 
-	private ImagePlus temporalMaxIntensity(ImagePlus imp, String title, int window){
-		int nFrames = imp.getNSlices();
+	@FunctionalInterface
+	interface ImageProcessorFunction {
+		ImageProcessor apply(ImageProcessor ip);
+	}
+
+	/**
+	 * This method allows to process and apply the given function to a whole ImagePlus object.
+	 *
+	 * @param imp The ImagePlus on which we want to apply the function
+	 * @param func The function that we want to apply to each frame's processor
+	 * @return A new ImagePlus object where func has been applied to each image processor
+	 */
+	private ImagePlus processStack(ImagePlus imp, ImageProcessorFunction func) {
+		ImageStack newStack = new ImageStack(imp.getWidth(), imp.getHeight());
+
+		for (int i = 1; i <= imp.getStackSize(); i++) {
+			ImageProcessor ip = imp.getStack().getProcessor(i);
+			ImageProcessor result = func.apply(ip);  // Call passed function
+			newStack.addSlice(result);
+		}
+
+		ImagePlus resultImp = new ImagePlus("Processed", newStack);
+		resultImp.setDimensions(1, 1, imp.getStackSize());
+		resultImp.setOpenAsHyperStack(true);
+		return resultImp;
+	}
+
+	/**
+	 * This method computes the desired intensity projection on the t axis on the ImagePlus input
+	 * to increase contrast and exposure time of the original image. It is done so by a sliding window
+	 * that takes the total amount of frames 2*window + 1 centered around the considered frame and sums them.
+	 *
+	 * @param imp image input
+	 * @param title title we want to give to the results
+	 * @param typeOfProjection the type of projection we want, can be "max", "min, "sum", "sd", etc
+	 * @param window number of frames/2 that we want to be projected
+	 * @return ImagePlus where the sliding window projection has been done
+	 */
+	private ImagePlus temporalMaxIntensity(ImagePlus imp, String title, String typeOfProjection, int window){
+		int nFrames = imp.getNFrames();
 		ImagePlus copy = imp.duplicate();
 
 		ImageStack results = new ImageStack(imp.getWidth(), imp.getHeight());
@@ -157,26 +210,32 @@ public class ProjectCommand implements Command {
 			IJ.log("in loop"+t);
 			// Edge Conditions
 			if(t-window < 1){
-				ImageProcessor ip = ZProjector.run(copy,"max",t,t+window).getProcessor();
+				ImageProcessor ip = ZProjector.run(copy,typeOfProjection,t,t+window).getProcessor();
 				results.addSlice(ip);
 				IJ.log("start"+t);
 			} else if (t+window > nFrames){
-				ImageProcessor ip = ZProjector.run(copy,"max",t-window,t).getProcessor();
+				ImageProcessor ip = ZProjector.run(copy,typeOfProjection,t-window,t).getProcessor();
 				results.addSlice(ip);
 				IJ.log("end"+t);
 			} else {
-				ImageProcessor ip = ZProjector.run(copy,"max",t-window,t+window).getProcessor();
+				ImageProcessor ip = ZProjector.run(copy,typeOfProjection,t-window,t+window).getProcessor();
 				results.addSlice(ip);
-				IJ.log("midlle"+t);
+				IJ.log("middle"+t);
 //				results = ZProjector.run(copy, "max",t-window, t+window);
 			}
 		}
-
+		// Create the final ImagePlus and treat it as a time series
 		ImagePlus resultImp = new ImagePlus(title, results);
-//		resultImp.setDimensions(1, 1, nFrames);  // 1 channel, 1 slice, nFrames time points
+		resultImp.setDimensions(1, 1, nFrames);        // 1 channel, 1 Z slice, n time frames
+		resultImp.setOpenAsHyperStack(true);
 
 		return  resultImp;
 	}
+
+	private ImagePlus totalProjection(ImagePlus imp, String typeOfProjection){
+		return ZProjector.run(imp,typeOfProjection);
+	}
+
 	/**
 	 * This method applies a temporal median filter to a 32-bit time series.
 	 * For each frame in the time series, the function collects pixel values from neighboring
@@ -228,6 +287,76 @@ public class ProjectCommand implements Command {
 			result.addSlice(new FloatProcessor(w, h, output)); // store the filtered frame
 		}
 		return new ImagePlus(title, result);
+	}
+
+	/**
+	 * TODO question 1 - fill the method description and input/output parameters
+	 * This method applies a DoG filter on every time frame of the ImagePlus input.
+	 * Then every spot on each frame is detected if the intensity is above the specified threshold.
+	 * The size of the spots detected is saved into the IJ log and they are added into a partitioned graph
+	 * which is returned by the method.
+	 *
+	 * @param imp the ImagePlus object input
+	 * @param sigma the level of blur of the gaussian filter of the DoG
+	 * @param threshold the threshold of intensity to detect spots in the image input imp
+	 * @return Graph that contains the spots detected
+	 */
+	private PartitionedGraph detect(ImagePlus imp, double sigma, double threshold) {
+		IJ.log("nFrames temporal"+imp.getNFrames()+"nSlices"+imp.getNSlices());
+		int nt = imp.getNFrames();
+		new ImagePlus("DoG", classic_dog(imp.getProcessor(), sigma)).show();
+		PartitionedGraph graph = new PartitionedGraph();
+		for (int t = 0; t < nt; t++) {
+			imp.setPosition(1, 1, 1+t);
+			ImageProcessor ip = imp.getProcessor();
+			ImageProcessor dog = classic_dog(ip, sigma);
+			Spots spots = localMax(dog, ip, t, threshold);
+			IJ.log("Frame t:" + t + " #localmax:" + spots.size() );
+			graph.add(spots);
+		}
+		return graph;
+	}
+	/**
+	 * TODO question 1 - fill the method description and input/output parameters
+	 * This method creates a DoG filter processor for a given processor.
+	 * The level of blur of the filter is adjusted by the parameter sigma.
+	 *
+	 * @param ip the ImageProcessor of an ImagePlus object
+	 * @param sigma the level of blur of the gaussian filters
+	 * @return a DoG processor
+	 */
+	private ImageProcessor classic_dog(ImageProcessor ip, double sigma) {
+		ImagePlus g1 = new ImagePlus("g1", ip.duplicate());
+		ImagePlus g2 = new ImagePlus("g2", ip.duplicate());
+		double sigma2 = (Math.sqrt(2) * sigma);
+		GaussianBlur3D.blur(g1, sigma, sigma, 0);
+		GaussianBlur3D.blur(g2, sigma2, sigma2, 0);
+		ImagePlus dog = ImageCalculator.run(g1, g2, "Subtract create stack");
+		return dog.getProcessor();
+	}
+
+	public Spots localMax(ImageProcessor dog, ImageProcessor image, int t, double threshold) {
+		Spots spots = new Spots();
+		// going through the image pixel by pixel
+		for (int x = 1; x < dog.getWidth() - 1; x++) {
+			for (int y = 1; y < dog.getHeight() - 1; y++) {
+				double valueImage = image.getPixelValue(x, y);
+				// compare value of the pixel to the threshold
+				if (valueImage >= threshold) {
+					// if above the threshold we get the corresponding pixel value after applying the DoG filter
+					double v = dog.getPixelValue(x, y);
+					double max = -1;
+					// check neighbor pixels of the detected pixel above the threshold
+					for (int k = -1; k <= 1; k++) // k=-1,0,1
+						for (int l = -1; l <= 1; l++) // l=-1,0,1
+							// we save the maximum value between the 9 pixels centered around the pixel above the threshold found
+							max = Math.max(max, dog.getPixelValue(x + k, y + l));
+					// if the pixel in the center is the max between the 9 pixels then we add a Spot to the list
+					if (v == max) spots.add(new Spot(x, y, t, valueImage));
+				}
+			}
+		}
+		return spots; // return the list of Spots
 	}
 
 	/**

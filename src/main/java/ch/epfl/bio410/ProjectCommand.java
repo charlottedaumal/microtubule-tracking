@@ -21,6 +21,7 @@ import java.awt.*;
 import java.util.ArrayList; // for temporal median filtering
 import java.util.Arrays; // for temporal median filtering
 import java.util.List; // for temporal median filtering
+import java.util.Objects;
 
 
 @Plugin(type = Command.class, menuPath = "Plugins>BII>Microtubule Gang")
@@ -62,14 +63,22 @@ public class ProjectCommand implements Command {
 		outputstack.updateAndDraw();
 		outputstack.show();
 
-		ImagePlus temporalExposure = temporalMaxIntensity(outputstack, "temporal", "sum",3);
+
+		int sigma = 1;
+		int threshold = 20;
+
+		PartitionedGraph test = detect(outputstack, sigma, threshold);
+		test.drawSpots(outputstack);
+
+
+
+		ImagePlus temporalExposure = temporalProjection(outputstack, "temporal", "sum","left",3);
 		double max_pixel_value = temporalExposure.getStatistics().max ;
 		temporalExposure.setDisplayRange(0, max_pixel_value);
 		temporalExposure.updateAndDraw();
 		temporalExposure.show();
 
-		int sigma = 1;
-		int threshold = 20;
+
 
 		// Detection
 		PartitionedGraph frames = detect(temporalExposure, sigma, threshold);
@@ -199,10 +208,11 @@ public class ProjectCommand implements Command {
 	 * @param imp image input
 	 * @param title title we want to give to the results
 	 * @param typeOfProjection the type of projection we want, can be "max", "min, "sum", "sd", etc
+	 * @param window_place either 'left', 'middle' or 'right' determines the location of the window with respect to the frame
 	 * @param window number of frames/2 that we want to be projected
 	 * @return ImagePlus where the sliding window projection has been done
 	 */
-	private ImagePlus temporalMaxIntensity(ImagePlus imp, String title, String typeOfProjection, int window){
+	private ImagePlus temporalProjection(ImagePlus imp, String title, String typeOfProjection, String window_place, int window){
 		int nFrames = imp.getNFrames();
 		ImagePlus copy = imp.duplicate();
 
@@ -211,20 +221,26 @@ public class ProjectCommand implements Command {
 		for(int t=1; t<= nFrames; t++){
 			copy.setPosition(1,1, t);
 			IJ.log("in loop"+t);
-			// Edge Conditions
-			if(t-window < 1){
-				ImageProcessor ip = ZProjector.run(copy,typeOfProjection,t,t+window).getProcessor();
-				results.addSlice(ip);
-				IJ.log("start"+t);
-			} else if (t+window > nFrames){
-				ImageProcessor ip = ZProjector.run(copy,typeOfProjection,t-window,t).getProcessor();
-				results.addSlice(ip);
-				IJ.log("end"+t);
-			} else {
-				ImageProcessor ip = ZProjector.run(copy,typeOfProjection,t-window,t+window).getProcessor();
-				results.addSlice(ip);
-				IJ.log("middle"+t);
-//				results = ZProjector.run(copy, "max",t-window, t+window);
+
+			if(Objects.equals(window_place, "middle")){
+				int start = Math.max(1, t - window/2);
+				int end = Math.min(nFrames, t + window/2);
+
+				// Run temporal max projection
+				ImageProcessor ip = ZProjector.run(copy, typeOfProjection, start, end).getProcessor();
+				results.addSlice("Frame " + t, ip);
+			} else if (Objects.equals(window_place, "left")) {
+				int start = Math.max(1, t - window);
+
+				// Run temporal max projection
+				ImageProcessor ip = ZProjector.run(copy, typeOfProjection, start, t).getProcessor();
+				results.addSlice("Frame " + t, ip);
+			}else if (Objects.equals(window_place, "right")){
+				int end = Math.min(nFrames, t + window);
+
+				// Run temporal max projection
+				ImageProcessor ip = ZProjector.run(copy, typeOfProjection, t, end).getProcessor();
+				results.addSlice("Frame " + t, ip);
 			}
 		}
 		// Create the final ImagePlus and treat it as a time series

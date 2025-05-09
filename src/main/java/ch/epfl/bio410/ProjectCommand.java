@@ -66,8 +66,9 @@ public class ProjectCommand implements Command {
 
 		int sigma = 1;
 		int threshold = 20;
+		double tolerance = 3;
 
-		PartitionedGraph test = detect(outputstack, sigma, threshold);
+		PartitionedGraph test = detect(outputstack, sigma, threshold, tolerance);
 		test.drawSpots(outputstack);
 
 
@@ -81,7 +82,7 @@ public class ProjectCommand implements Command {
 
 
 		// Detection
-		PartitionedGraph frames = detect(temporalExposure, sigma, threshold);
+		PartitionedGraph frames = detect(temporalExposure, sigma, threshold, tolerance);
 		frames.drawSpots(temporalExposure);
 
 		ImagePlus total_proj = totalProjection(outputstack, "max");
@@ -225,19 +226,16 @@ public class ProjectCommand implements Command {
 			if(Objects.equals(window_place, "middle")){
 				int start = Math.max(1, t - window/2);
 				int end = Math.min(nFrames, t + window/2);
-
 				// Run temporal max projection
 				ImageProcessor ip = ZProjector.run(copy, typeOfProjection, start, end).getProcessor();
 				results.addSlice("Frame " + t, ip);
 			} else if (Objects.equals(window_place, "left")) {
 				int start = Math.max(1, t - window);
-
 				// Run temporal max projection
 				ImageProcessor ip = ZProjector.run(copy, typeOfProjection, start, t).getProcessor();
 				results.addSlice("Frame " + t, ip);
 			}else if (Objects.equals(window_place, "right")){
 				int end = Math.min(nFrames, t + window);
-
 				// Run temporal max projection
 				ImageProcessor ip = ZProjector.run(copy, typeOfProjection, t, end).getProcessor();
 				results.addSlice("Frame " + t, ip);
@@ -320,8 +318,8 @@ public class ProjectCommand implements Command {
 	 * @param threshold the threshold of intensity to detect spots in the image input imp
 	 * @return Graph that contains the spots detected
 	 */
-	private PartitionedGraph detect(ImagePlus imp, double sigma, double threshold) {
-		IJ.log("nFrames temporal"+imp.getNFrames()+"nSlices"+imp.getNSlices());
+	private PartitionedGraph detect(ImagePlus imp, double sigma, double threshold, double tolerance) {
+
 		int nt = imp.getNFrames();
 		new ImagePlus("DoG", classic_dog(imp.getProcessor(), sigma)).show();
 		PartitionedGraph graph = new PartitionedGraph();
@@ -329,7 +327,7 @@ public class ProjectCommand implements Command {
 			imp.setPosition(1, 1, 1+t);
 			ImageProcessor ip = imp.getProcessor();
 			ImageProcessor dog = classic_dog(ip, sigma);
-			Spots spots = localMax(dog, ip, t, threshold);
+			Spots spots = localMax(dog, ip, t, threshold, tolerance);
 			IJ.log("Frame t:" + t + " #localmax:" + spots.size() );
 			graph.add(spots);
 		}
@@ -354,7 +352,7 @@ public class ProjectCommand implements Command {
 		return dog.getProcessor();
 	}
 
-	public Spots localMax(ImageProcessor dog, ImageProcessor image, int t, double threshold) {
+	public Spots localMax(ImageProcessor dog, ImageProcessor image, int t, double threshold, double tolerance) {
 		Spots spots = new Spots();
 		// going through the image pixel by pixel
 		for (int x = 1; x < dog.getWidth() - 1; x++) {
@@ -375,8 +373,33 @@ public class ProjectCommand implements Command {
 				}
 			}
 		}
-		return spots; // return the list of Spots
+
+		Spots final_spots = new Spots();
+		for (Spot x : spots){
+			for (Spot y : spots) {
+				if (x.distance(y) < tolerance) {
+					if (x.value < y.value){
+						final_spots.add(y);
+					}else{
+						final_spots.add(x);
+					}
+				}
+			}
+		}
+		return final_spots; // return the final list of Spots
 	}
+/*
+	public double findDirection(ImagePlus imp, Spot spot, double dimension) {
+
+		for (int t = spot.t - 2; t <= spot.t; t++) {
+			List<Spot[]> surrounding_spots = new ArrayList<>();
+			imp.setPosition(1, 1, t);
+			for (double width = (spot.x - dimension) ; width <= spot.x + dimension; width++){
+				for(double height = (spot.y - dimension) ; height <= spot.y + dimension; height++){
+
+				}
+			}
+	} */
 
 	/**
 	 * This main function serves for development purposes.

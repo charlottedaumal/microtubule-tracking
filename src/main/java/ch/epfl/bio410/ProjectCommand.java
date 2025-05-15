@@ -1,8 +1,7 @@
 package ch.epfl.bio410;
 
-import ch.epfl.bio410.cost.AbstractCost;
-import ch.epfl.bio410.cost.DistanceAndIntensityCost;
-import ch.epfl.bio410.graph.DirectionVector;
+import ch.epfl.bio410.cost.AbstractDirCost;
+import ch.epfl.bio410.cost.DirectionCost;
 import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
 import ch.epfl.bio410.graph.Spots;
@@ -29,7 +28,7 @@ import java.util.Objects;
 @Plugin(type = Command.class, menuPath = "Plugins>BII>Microtubule Gang")
 public class ProjectCommand implements Command {
 
-	private double costmax;
+	private double costmax=0.25;
 
 	public void run() {
 
@@ -43,7 +42,7 @@ public class ProjectCommand implements Command {
 
 		// convert the image to 32 bits for downstream calculations
 		IJ.run(imp, "32-bit", "");
-		imp.show();
+		//imp.show();
 
 		int nFrames = imp.getNFrames();
 
@@ -70,12 +69,7 @@ public class ProjectCommand implements Command {
 
 		int sigma = 1;
 		int threshold = 20;
-		double tolerance = 3;
-
-		PartitionedGraph test = detect(outputstack, sigma, threshold, tolerance);
-		test.drawSpots(outputstack);
-
-
+		double tolerance = 20;
 
 		ImagePlus temporalExposure = temporalProjection(outputstack, "temporal", "sum","left",3);
 		double max_pixel_value = temporalExposure.getStatistics().max ;
@@ -89,12 +83,22 @@ public class ProjectCommand implements Command {
 		PartitionedGraph frames = detect(temporalExposure, sigma, threshold, tolerance);
 		frames.drawSpots(temporalExposure);
 
-		ImagePlus total_proj = totalProjection(outputstack, "max");
-		total_proj.show();
+//		ImagePlus total_proj = totalProjection(outputstack, "max");
+//		total_proj.show();
 
-		double costmax=5;
-		double lambda = 0.99;
-		AbstractCost cost = new DistanceAndIntensityCost(imp, costmax, lambda);
+		double gamma = 0.15;
+		double lambda = 0.85;
+		AbstractDirCost cost = new DirectionCost(imp, costmax, gamma, lambda);
+
+		// Linking TODO questions 2 & 5 - select one of algorithm
+		int dimension = 10;
+//		PartitionedGraph trajectories = trackToFirstValidTrajectory(frames, cost);
+		PartitionedGraph trajectories = directionalTracking(frames, cost, dimension);
+		trajectories.drawLines(temporalExposure);
+//
+//		double costmax=5;
+//		double lambda = 0.99;
+//		AbstractCost cost = new DistanceAndIntensityCost(imp, costmax, lambda);
 
 
 //		//Apply median filter
@@ -342,7 +346,7 @@ public class ProjectCommand implements Command {
 		}
 		return graph;
 	}
-	
+
 	/**
 	 * This method creates a DoG filter processor for a given processor.
 	 * The level of blur of the filter is adjusted by the parameter sigma.
@@ -386,20 +390,24 @@ public class ProjectCommand implements Command {
 		Spots final_spots = new Spots();
 		for (Spot x : spots){
 			for (Spot y : spots) {
-				if (x.distance(y) < tolerance) {
-					if (x.value < y.value){
-						final_spots.add(y);
-					}else{
-						final_spots.add(x);
+				if(! x.equals(y)){
+					if (x.distance(y) < tolerance) {
+						IJ.log("in tolerance loop"+x.distance(y));
+						if (x.value < y.value){
+							final_spots.add(y);
+						}else{
+							final_spots.add(x);
+						}
 					}
 				}
+
 			}
 		}
 		return final_spots; // return the final list of Spots
 	}
 
 
-	private PartitionedGraph trackToNearestTrajectory(PartitionedGraph frames, AbstractCost cost) {
+	private PartitionedGraph directionalTracking(PartitionedGraph frames, AbstractDirCost cost, int dimension) {
 		PartitionedGraph trajectories = new PartitionedGraph();
 		for (Spots frame : frames) {
 			for (Spot spot : frame) {
@@ -412,10 +420,10 @@ public class ProjectCommand implements Command {
 						double trajectory_cost = this.costmax; // set the first cost value to be the highest possible
 						Spot next_spot = null; // we first initialize the next_spot to be null
 						for(Spot next : frames.get(t+1)) { // iterate over all spots of the next frame
-							if (cost.validate(next, spot) == true) { // if the cost is lesser than the costmax
-								if(cost.evaluate(next, spot) < trajectory_cost) {
+							if (cost.validate(next, spot, frames, dimension) == true) { // if the cost is lesser than the costmax
+								if(cost.evaluate(next, spot, frames, dimension) < trajectory_cost) {
 									// if the new cost is less than the previous one we save the spot
-									trajectory_cost = cost.evaluate(next, spot);
+									trajectory_cost = cost.evaluate(next, spot, frames, dimension);
 									next_spot = next;
 								}
 							}

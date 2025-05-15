@@ -1,7 +1,7 @@
 package ch.epfl.bio410.cost;
 
+import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
-import ch.epfl.bio410.graph.Spots;
 
 /**
  * This is a so-called interface. To make it simple, an interface is a special class where you declare methods
@@ -14,8 +14,8 @@ import ch.epfl.bio410.graph.Spots;
  */
 public interface AbstractDirCost {
 
-    public abstract boolean validate(Spot a, Spot b,Spots allSpots, int dimension);
-    public abstract double evaluateDir(Spot a, Spot b, Spots allSpots, int dimension);
+    public abstract boolean validate(Spot a, Spot b, PartitionedGraph frames, int dimension);
+    public abstract double evaluate(Spot a, Spot b, PartitionedGraph frames, int dimension);
 
 
 }

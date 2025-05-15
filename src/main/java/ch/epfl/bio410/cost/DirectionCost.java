@@ -1,8 +1,10 @@
 package ch.epfl.bio410.cost;
 
 import ch.epfl.bio410.graph.DirectionVector;
+import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
 import ch.epfl.bio410.graph.Spots;
+import ij.IJ;
 import ij.ImagePlus;
 import ij.plugin.ZProjector;
 import ch.epfl.bio410.utils.TrackingFunctions;
@@ -36,30 +38,33 @@ public class DirectionCost implements AbstractDirCost {
 
 
     @Override
-    public double evaluateDir(Spot a, Spot b, Spots allSpots, int dimension) {
+    public double evaluate(Spot a, Spot b, PartitionedGraph frames, int dimension) {
+        double maxAllowedDistance = 10;
         SimpleDistanceCost dist = new SimpleDistanceCost(costMax);
 
         double intensityDiff = Math.abs(a.value - b.value);
         double distance = dist.evaluate(a, b);
 
-        DirectionVector dir1 = TrackingFunctions.findDirection(a, allSpots, dimension);
-        DirectionVector dir2 = TrackingFunctions.findDirection(b, allSpots, dimension);
+        DirectionVector dira = TrackingFunctions.findDirection(a, frames, dimension);
+        DirectionVector dirb = TrackingFunctions.findDirection(b, frames, dimension);
 
-        double directionSimilarity = dir1.cosineSimilarity(dir2); // value between -1 and 1
+        double directionSimilarity = dira.cosineSimilarity(dirb); // value between -1 and 1
+
+        if (distance > maxAllowedDistance) return Double.POSITIVE_INFINITY;
 
         // Combine into a cost (lower is better)
         return this.lambda * dist.evaluate(a, b) / this.normDist +
-                this.gamma * directionSimilarity +
-                        (1 - this.lambda - this.gamma)*Math.abs(a.value - b.value)/this.normInt;
+                this.gamma * (1 - Math.max(0, directionSimilarity)) +
+                (1 - this.lambda - this.gamma)*Math.abs(a.value - b.value)/this.normInt;
     }
 
 
 
     @Override
-    public boolean validate(Spot a, Spot b, Spots allSpots, int dimension) {
+    public boolean validate(Spot a, Spot b, PartitionedGraph frames, int dimension) {
         if (a == null) return false;
         if (b == null) return false;
-        return evaluateDir(a, b, allSpots, dimension) < costMax;
+        return evaluate(a, b, frames, dimension) < costMax;
     }
 }
 

@@ -1,5 +1,8 @@
 package ch.epfl.bio410;
 
+import ch.epfl.bio410.cost.AbstractCost;
+import ch.epfl.bio410.cost.DistanceAndIntensityCost;
+import ch.epfl.bio410.graph.DirectionVector;
 import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
 import ch.epfl.bio410.graph.Spots;
@@ -17,7 +20,6 @@ import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
-import java.awt.*;
 import java.util.ArrayList; // for temporal median filtering
 import java.util.Arrays; // for temporal median filtering
 import java.util.List; // for temporal median filtering
@@ -26,6 +28,8 @@ import java.util.Objects;
 
 @Plugin(type = Command.class, menuPath = "Plugins>BII>Microtubule Gang")
 public class ProjectCommand implements Command {
+
+	private double costmax;
 
 	public void run() {
 
@@ -87,6 +91,11 @@ public class ProjectCommand implements Command {
 
 		ImagePlus total_proj = totalProjection(outputstack, "max");
 		total_proj.show();
+
+		double costmax=5;
+		double lambda = 0.99;
+		AbstractCost cost = new DistanceAndIntensityCost(imp, costmax, lambda);
+
 
 //		//Apply median filter
 //		ImagePlus medianImp = temporalMedianFilter(imp, "Median Stack", 15);
@@ -333,8 +342,8 @@ public class ProjectCommand implements Command {
 		}
 		return graph;
 	}
+	
 	/**
-	 * TODO question 1 - fill the method description and input/output parameters
 	 * This method creates a DoG filter processor for a given processor.
 	 * The level of blur of the filter is adjusted by the parameter sigma.
 	 *
@@ -388,18 +397,43 @@ public class ProjectCommand implements Command {
 		}
 		return final_spots; // return the final list of Spots
 	}
-/*
-	public double findDirection(ImagePlus imp, Spot spot, double dimension) {
 
-		for (int t = spot.t - 2; t <= spot.t; t++) {
-			List<Spot[]> surrounding_spots = new ArrayList<>();
-			imp.setPosition(1, 1, t);
-			for (double width = (spot.x - dimension) ; width <= spot.x + dimension; width++){
-				for(double height = (spot.y - dimension) ; height <= spot.y + dimension; height++){
 
+	private PartitionedGraph trackToNearestTrajectory(PartitionedGraph frames, AbstractCost cost) {
+		PartitionedGraph trajectories = new PartitionedGraph();
+		for (Spots frame : frames) {
+			for (Spot spot : frame) {
+				Spots trajectory = trajectories.getPartitionOf(spot);
+				if (trajectory == null) trajectory = trajectories.createPartition(spot);
+				if (spot.equals(trajectory.last())) {
+					int t0 = spot.t;
+					// TODO question 4 - add trajectory to the nearest spot of the next frame
+					for (int t=t0; t < frames.size() - 1; t++) {
+						double trajectory_cost = this.costmax; // set the first cost value to be the highest possible
+						Spot next_spot = null; // we first initialize the next_spot to be null
+						for(Spot next : frames.get(t+1)) { // iterate over all spots of the next frame
+							if (cost.validate(next, spot) == true) { // if the cost is lesser than the costmax
+								if(cost.evaluate(next, spot) < trajectory_cost) {
+									// if the new cost is less than the previous one we save the spot
+									trajectory_cost = cost.evaluate(next, spot);
+									next_spot = next;
+								}
+							}
+						}
+						if (next_spot != null) { // check that we found a next spot to add to the trajectory
+							// after iteration over all spots on next frame, final spot is saved in next spot
+							IJ.log("#" + trajectories.size() + " spot " + next_spot + " with a cost:" + trajectory_cost);
+							trajectory.add(next_spot);
+							spot = next_spot;
+						} else {
+							break;  // no valid match found, stop this trajectory
+						}
+					}
 				}
 			}
-	} */
+		}
+		return trajectories;
+	}
 
 	/**
 	 * This main function serves for development purposes.

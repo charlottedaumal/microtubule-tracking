@@ -5,6 +5,7 @@ import ch.epfl.bio410.cost.DirectionCost;
 import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
 import ch.epfl.bio410.graph.Spots;
+import ch.epfl.bio410.utils.TemporalDifferencer;
 import ch.epfl.bio410.utils.TemporalProjector;
 import ij.IJ;
 import ij.ImagePlus;
@@ -19,6 +20,7 @@ import ij.process.FloatProcessor; // for temporal median filtering
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 import net.imagej.ImageJ;
+import org.ojalgo.access.StreamAnyD;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
@@ -125,7 +127,10 @@ public class ProjectCommand implements Command {
 //		temporalExposure.updateAndDraw();
 //		temporalExposure.show();
 
-		ImagePlus tempDiff = temporalDifference(temporalExposure,"difference",windowDiff);
+//		ImagePlus tempDiff = temporalDifference(temporalExposure,"difference",windowDiff);
+		TemporalDifferencer diff = new TemporalDifferencer(temporalExposure, windowDiff);
+		ImagePlus tempDiff = processStack(imp, (ImageProcessor ip) -> diff.apply(ip));
+
 //		tempDiff.setDisplayRange(0, tempDiff.getStatistics().max );
 //		tempDiff.updateAndDraw();
 		tempDiff.show();
@@ -137,7 +142,8 @@ public class ProjectCommand implements Command {
 		int dimension = 20;
 //		PartitionedGraph trajectories = trackToFirstValidTrajectory(frames, cost);
 		PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension);
-		trajectoriesDiff.drawLines(tempDiff);
+		PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
+		cleanTraj.drawLines(tempDiff);
 
 //		// Detection
 //		PartitionedGraph frames = detect(temporalExposure, sigma, threshold, tolerance);
@@ -264,6 +270,8 @@ public class ProjectCommand implements Command {
 			ImageProcessor ip = imp.getStack().getProcessor(i);
 			ImageProcessor result = func.apply(ip);  // Call passed function
 			newStack.addSlice(result);
+			System.gc();  // Encourage cleanup
+
 		}
 
 		ImagePlus resultImp = new ImagePlus("Processed", newStack);
@@ -576,6 +584,17 @@ public class ProjectCommand implements Command {
 			}
 		}
 		return trajectories;
+	}
+
+	private PartitionedGraph cleaningTrajectories(PartitionedGraph frames, int min_length){
+		// trying to clean up minimal trajectories to lighten memory load
+		PartitionedGraph final_graph = new PartitionedGraph();
+		for (Spots trajectory : frames){
+			if (trajectory.size() > min_length){
+				final_graph.add(trajectory);
+			}
+		}
+		return final_graph;
 	}
 
 	/**

@@ -83,7 +83,7 @@ public class PartitionedGraph extends ArrayList<Spots> {
                 overlay.add(roi2);
             }
         }
-        ImagePlus out = imp.duplicate();
+        ImagePlus out = imp; // imp.duplicate() creates outOfMemory error :(
         out.setTitle("Trajectories " + imp.getTitle() );
         out.show();
         out.getProcessor().resetMinAndMax();

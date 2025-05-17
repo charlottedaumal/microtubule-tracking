@@ -11,8 +11,9 @@ import ch.epfl.bio410.utils.TrackingFunctions;
 
 public class DirectionCost implements AbstractDirCost {
 
-    private double gamma = 0; // parameter for the direction cost
     private double lambda = 0; // parameter for the intensity cost
+    private double gamma = 0; // parameter for the direction cost
+    private double kappa = 0; // parameter for the speed cost
     private double costMax = 0;
 
     /** normalization direction*/
@@ -25,39 +26,79 @@ public class DirectionCost implements AbstractDirCost {
     private double normInt = 1;
 
 
-    public DirectionCost(ImagePlus imp, double costMax, double gamma, double lambda) {
-        this.gamma = gamma;
+    public DirectionCost(ImagePlus imp, double costMax, double lambda, double gamma, double kappa) {
         this.lambda = lambda;
+        this.gamma = gamma;
+        this.kappa = kappa;
         this.costMax = costMax;
         int height = imp.getHeight();
         int width = imp.getWidth();
-        this.normDir = 1; // TODO : have to implement a normalisation function so that vectors are already normalized
+        this.normDir = 1;
         this.normDist = Math.sqrt(height * height + width * width);
         this.normInt = ZProjector.run(imp,"max").getStatistics().max - ZProjector.run(imp,"min").getStatistics().min;
     }
 
 
+//    public double evaluate(Spot a, Spot b, PartitionedGraph frames, int dimension) {
+//        double maxAllowedDistance = 10;
+//        SimpleDistanceCost dist = new SimpleDistanceCost(costMax);
+//
+//        double intensityDiff = Math.abs(a.value - b.value);
+//        double distance = dist.evaluate(a, b);
+//
+//        DirectionVector dira = TrackingFunctions.findDirection(a, frames, dimension);
+//        DirectionVector dirb = TrackingFunctions.findDirection(b, frames, dimension);
+//
+//        double directionSimilarity = dira.cosineSimilarity(dirb); // value between -1 and 1
+//
+//        if (distance > maxAllowedDistance) return Double.POSITIVE_INFINITY;
+//
+//        // Combine into a cost (lower is better)
+//        return this.lambda * dist.evaluate(a, b) / this.normDist +
+//                this.gamma * (1 - Math.max(0, directionSimilarity)) +
+//                (1 - this.lambda - this.gamma)*Math.abs(a.value - b.value)/this.normInt;
+//    }
+
     @Override
-    public double evaluate(Spot a, Spot b, PartitionedGraph frames, int dimension) {
-        double maxAllowedDistance = 10;
+    public double evaluate(Spot a,
+                           Spot b,
+                           PartitionedGraph frames,
+                           int dimension)
+    {
+        // Distance
+        double maxAllowedDistance = 10;             // px
+        double dt                 = 1.0;            // frame interval
         SimpleDistanceCost dist = new SimpleDistanceCost(costMax);
 
-        double intensityDiff = Math.abs(a.value - b.value);
         double distance = dist.evaluate(a, b);
+        if (distance > maxAllowedDistance)
+            return Double.POSITIVE_INFINITY;
 
-        DirectionVector dira = TrackingFunctions.findDirection(a, frames, dimension);
-        DirectionVector dirb = TrackingFunctions.findDirection(b, frames, dimension);
+        // intensity
+        double intensityDiff = Math.abs(a.value - b.value);
 
-        double directionSimilarity = dira.cosineSimilarity(dirb); // value between -1 and 1
+        // direction
+        DirectionVector dirA = TrackingFunctions.findDirection(a, frames, dimension);
+        DirectionVector dirB = TrackingFunctions.findDirection(b, frames, dimension);
+        double angularPenalty = 1.0 - Math.max(0.0, dirA.cosineSimilarity(dirB)); // 0 (parallel) … 2 (opposite)
 
-        if (distance > maxAllowedDistance) return Double.POSITIVE_INFINITY;
+        // speed
+        double speedA = dirA.norm() / dt; // Speed at frame t  (|delta r| / delta t)
+        double dx     = b.x - a.x;
+        double dy     = b.y - a.y;
+        double speedB = Math.sqrt(dx*dx + dy*dy ) / dt; // speed from a to b
 
-        // Combine into a cost (lower is better)
-        return this.lambda * dist.evaluate(a, b) / this.normDist +
-                this.gamma * (1 - Math.max(0, directionSimilarity)) +
-                (1 - this.lambda - this.gamma)*Math.abs(a.value - b.value)/this.normInt;
+        // normalise speed change (0 = perfect, 1 = +100 %, 2 = −100 %, …)
+        double speedPenalty = Math.abs(speedB - speedA) / (speedA + 1e-6); // avoid /0
+
+        // FINAL COST
+        double cost = lambda *  distance           / normDist  +          // distance
+                      gamma  *  angularPenalty                   +          // angle
+                      kappa  *  speedPenalty                     +          // speed
+                      (1.0 - lambda - gamma - kappa) * intensityDiff / normInt; // intensity
+
+        return cost;
     }
-
 
 
     @Override

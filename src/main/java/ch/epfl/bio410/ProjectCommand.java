@@ -5,13 +5,16 @@ import ch.epfl.bio410.cost.DirectionCost;
 import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
 import ch.epfl.bio410.graph.Spots;
+import ch.epfl.bio410.utils.TemporalProjector;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.GenericDialog;
 import ij.io.OpenDialog;
 import ij.plugin.GaussianBlur3D;
 import ij.plugin.ImageCalculator;
 import ij.plugin.ZProjector;
+import ij.process.Blitter;
 import ij.process.FloatProcessor; // for temporal median filtering
 import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
@@ -19,6 +22,7 @@ import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
+import java.awt.*;
 import java.util.ArrayList; // for temporal median filtering
 import java.util.Arrays; // for temporal median filtering
 import java.util.List; // for temporal median filtering
@@ -28,7 +32,17 @@ import java.util.Objects;
 @Plugin(type = Command.class, menuPath = "Plugins>BII>Microtubule Gang")
 public class ProjectCommand implements Command {
 
-	private double costmax=0.25;
+	private double costmax=0.5;
+	private double sigma ;  // sigma of the DoG TODO : adapt it
+	private double sigma1 ; // sigma1 of preprocessing : to remove background
+	private double sigma2 ; // sigma2 of preprocessing : what we want to keep from image
+	private int windowExp ; // size of window to increase exposure
+	private int windowDiff ; // size of window to delete continuous tracks
+	private double threshold ; // threshold of intensity to detect spots
+	private double tolerance ; // tolerance of spots detected around one spot
+	private double lambda ; // wieght of distance in cost computation
+	private double gamma ; // weight of direction in cost computation
+	private double kappa ;
 
 	public void run() {
 
@@ -40,13 +54,43 @@ public class ProjectCommand implements Command {
 		
 		ImagePlus imp = IJ.openImage(filePath+fileName);
 
+		GenericDialog gd = new GenericDialog("Selecting the parameters");
+
+		// user input parameters
+		gd.addNumericField("Costmax:", 0.5, 3);
+		gd.addNumericField("Sigma:", 1, 2);
+		gd.addNumericField("Sigma1:", 5,2);
+		gd.addNumericField("Sigma2:", 1.25,2);
+		gd.addNumericField("WindowExp", 3, 1);
+		gd.addNumericField("WindowDiff", 1, 1);
+		gd.addNumericField("Threshold", 10, 3);
+		gd.addNumericField("Tolerance", 0, 1);
+		gd.addNumericField("Lambda", 0.5, 3);
+		gd.addNumericField("Gamma", 0.3, 3);
+		gd.addNumericField("Kappa", 0.15, 3);
+
+
+		gd.showDialog();
+
+		// === Retrieve the values from GUI ===
+		costmax = gd.getNextNumber();
+		sigma = gd.getNextNumber();
+		sigma1 = gd.getNextNumber();
+		sigma2 = gd.getNextNumber();
+		windowExp = (int) gd.getNextNumber();
+		windowDiff = (int) gd.getNextNumber();
+		threshold = gd.getNextNumber();
+		tolerance = gd.getNextNumber();
+		lambda = gd.getNextNumber();
+		gamma = gd.getNextNumber();
+		kappa = gd.getNextNumber();
+
 		// convert the image to 32 bits for downstream calculations
 		IJ.run(imp, "32-bit", "");
 		//imp.show();
 
 		int nFrames = imp.getNFrames();
 
-		double sigma1=5; double sigma2=1.25;
 //		ImagePlus outputstack = new ImagePlus("Normalised modified Dog", normalisation((dog(imp.getProcessor(), sigma1, sigma2))));
 		ImagePlus result = processStack(imp, ip -> dog(ip, sigma1, sigma2));
 		ImagePlus outputstack = processStack(result, this::normalisation);
@@ -62,39 +106,52 @@ public class ProjectCommand implements Command {
 		// Enhance contrast on DoG image
 //		ImagePlus dogProcessedImp = new ImagePlus("Processed DoG Stack", outputStack);
 		double max_pixel_value_1 = outputstack.getStatistics().max ;
-		outputstack.setDisplayRange(0, max_pixel_value_1);
-		outputstack.updateAndDraw();
+//		outputstack.setDisplayRange(0, max_pixel_value_1);
+//		outputstack.updateAndDraw();
+		IJ.run(outputstack, "Median...", "radius=1 stack");
 		outputstack.show();
 
+		// ---- temporal projection using the wrapper ----
+		TemporalProjector tp = new TemporalProjector(outputstack,
+							"sum",     // projection type
+									"left",  // window place
+									windowExp);        // window size
+		ImagePlus temporalExposure = processStack(outputstack, (ImageProcessor ip) -> tp.apply(ip));
 
-		int sigma = 1;
-		int threshold = 20;
-		double tolerance = 20;
+//		ImagePlus temporalExposure = temporalProjection(outputstack, "temporal", "sum",
+//				"left",windowExp);
+//		double max_pixel_value = temporalExposure.getStatistics().max ;
+//		temporalExposure.setDisplayRange(0, max_pixel_value);
+//		temporalExposure.updateAndDraw();
+//		temporalExposure.show();
 
-		ImagePlus temporalExposure = temporalProjection(outputstack, "temporal", "sum","left",3);
-		double max_pixel_value = temporalExposure.getStatistics().max ;
-		temporalExposure.setDisplayRange(0, max_pixel_value);
-		temporalExposure.updateAndDraw();
-		temporalExposure.show();
+		ImagePlus tempDiff = temporalDifference(temporalExposure,"difference",windowDiff);
+//		tempDiff.setDisplayRange(0, tempDiff.getStatistics().max );
+//		tempDiff.updateAndDraw();
+		tempDiff.show();
 
+		PartitionedGraph framesDiff = detect(tempDiff,1,5,tolerance);
+		framesDiff.drawSpots(tempDiff);
+		AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
 
+		int dimension = 20;
+//		PartitionedGraph trajectories = trackToFirstValidTrajectory(frames, cost);
+		PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension);
+		trajectoriesDiff.drawLines(tempDiff);
 
-		// Detection
-		PartitionedGraph frames = detect(temporalExposure, sigma, threshold, tolerance);
-		frames.drawSpots(temporalExposure);
+//		// Detection
+//		PartitionedGraph frames = detect(temporalExposure, sigma, threshold, tolerance);
+//		frames.drawSpots(temporalExposure);
+//
+////		PartitionedGraph trajectories = trackToFirstValidTrajectory(frames, cost);
+//		PartitionedGraph trajectories = directionalTracking(frames, cost, dimension);
+//		trajectories.drawLines(temporalExposure);
 
 //		ImagePlus total_proj = totalProjection(outputstack, "max");
 //		total_proj.show();
 
-		double gamma = 0.15;
-		double lambda = 0.85;
-		AbstractDirCost cost = new DirectionCost(imp, costmax, gamma, lambda);
 
-		// Linking TODO questions 2 & 5 - select one of algorithm
-		int dimension = 10;
-//		PartitionedGraph trajectories = trackToFirstValidTrajectory(frames, cost);
-		PartitionedGraph trajectories = directionalTracking(frames, cost, dimension);
-		trajectories.drawLines(temporalExposure);
+
 //
 //		double costmax=5;
 //		double lambda = 0.99;
@@ -192,6 +249,7 @@ public class ProjectCommand implements Command {
 		ImageProcessor apply(ImageProcessor ip);
 	}
 
+
 	/**
 	 * This method allows to process and apply the given function to a whole ImagePlus object.
 	 *
@@ -234,7 +292,6 @@ public class ProjectCommand implements Command {
 
 		for(int t=1; t<= nFrames; t++){
 			copy.setPosition(1,1, t);
-			IJ.log("in loop"+t);
 
 			if(Objects.equals(window_place, "middle")){
 				int start = Math.max(1, t - window/2);
@@ -262,9 +319,86 @@ public class ProjectCommand implements Command {
 		return  resultImp;
 	}
 
+	/**
+	 * TODO finish docstring
+	 * This method computes the desired intensity projection on the t axis on the ImagePlus input
+	 * to increase contrast and exposure time of the original image. It is done so by a sliding window
+	 * that takes the total amount of frames 2*window + 1 centered around the considered frame and sums them.
+	 *
+	 * @param imp image input
+	 * @param typeOfProjection the type of projection we want, can be "max", "min, "sum", "sd", etc
+	 * @param window_place either 'left', 'middle' or 'right' determines the location of the window with respect to the frame
+	 * @param window number of frames/2 that we want to be projected
+	 * @return ImagePlus where the sliding window projection has been done
+	 */
+	private ImageProcessor temporalProjectionFrame(ImagePlus imp, int t, String typeOfProjection, String window_place, int window){
+		int nFrames = imp.getNFrames();
+		ImagePlus copy = imp.duplicate();
+
+		ImageStack results = new ImageStack(imp.getWidth(), imp.getHeight());
+
+		copy.setPosition(1,1, t);
+		int start= 0;
+		int end= 0;
+
+		if(Objects.equals(window_place, "middle")){
+			start = Math.max(1, t - window/2);
+			end = Math.min(nFrames, t + window/2);
+
+		} else if (Objects.equals(window_place, "left")) {
+			start = Math.max(1, t - window);
+			end = t;
+		}else if (Objects.equals(window_place, "right")){
+			start = t;
+			end = Math.min(nFrames, t + window);
+		}
+
+		for (int i =start; i<=end; i++){
+			imp.setPosition(1,1,i);
+			results.addSlice(imp.getProcessor().duplicate());
+		}
+
+		ImagePlus temp = new ImagePlus("temp", results);
+		ImageProcessor projection = ZProjector.run(temp, typeOfProjection).getProcessor();
+		temp.close();
+
+		return  projection;
+	}
+
 	private ImagePlus totalProjection(ImagePlus imp, String typeOfProjection){
 		return ZProjector.run(imp,typeOfProjection);
 	}
+
+	private ImagePlus temporalDifference(ImagePlus imp, String title, int windowSize) {
+		int nFrames = imp.getNFrames();
+		ImageStack results = new ImageStack(imp.getWidth(), imp.getHeight());
+
+		for (int t = 1; t <= nFrames; t++) {
+			int start = Math.max(1, t - windowSize);
+			int end = t;
+
+			imp.setPosition(1, 1, t);
+			ImageProcessor current = imp.getProcessor().duplicate();
+			for(int i = start; i <end; i++){
+				imp.setPosition(1, 1, i);
+				ImageProcessor previous = imp.getProcessor().duplicate();
+				current.copyBits(previous, 0, 0, Blitter.SUBTRACT);
+				previous = null; // freeing up memory
+			}
+
+			results.addSlice("Δ Frame " + t, current);
+			current = null ; // freeing up memory
+			System.gc();  // Encourage cleanup
+
+		}
+
+		ImagePlus resultImp = new ImagePlus(title, results);
+		resultImp.setDimensions(1, 1, nFrames );
+		resultImp.setOpenAsHyperStack(true);
+
+		return resultImp;
+	}
+
 
 	/**
 	 * This method applies a temporal median filter to a 32-bit time series.
@@ -387,23 +521,24 @@ public class ProjectCommand implements Command {
 			}
 		}
 
-		Spots final_spots = new Spots();
-		for (Spot x : spots){
-			for (Spot y : spots) {
-				if(! x.equals(y)){
-					if (x.distance(y) < tolerance) {
-						IJ.log("in tolerance loop"+x.distance(y));
-						if (x.value < y.value){
-							final_spots.add(y);
-						}else{
-							final_spots.add(x);
-						}
-					}
-				}
-
-			}
-		}
-		return final_spots; // return the final list of Spots
+//		Spots final_spots = new Spots();
+//		for (Spot x : spots){
+//			for (Spot y : spots) {
+//				if(! x.equals(y)){
+//					if (x.distance(y) < tolerance) {
+//						IJ.log("in tolerance loop"+x.distance(y));
+//						if (x.value < y.value){
+//							final_spots.add(y);
+//						}else{
+//							final_spots.add(x);
+//						}
+//					}
+//				}
+//
+//			}
+//		}
+//		return final_spots; // return the final list of Spots
+		return spots;
 	}
 
 

@@ -1,5 +1,7 @@
 package ch.epfl.bio410.graph;
 
+import static inference.LogFuncs.pi;
+
 public class DirectionVector {
     public final double dx;
     public final double dy;
@@ -10,6 +12,7 @@ public class DirectionVector {
         this.dy = dy;
         this.spot = spot;
     }
+
 
     public double norm() {
         return Math.sqrt(dx * dx + dy * dy);

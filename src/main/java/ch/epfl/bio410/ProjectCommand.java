@@ -2,6 +2,8 @@ package ch.epfl.bio410;
 
 import ch.epfl.bio410.cost.AbstractDirCost;
 import ch.epfl.bio410.cost.DirectionCost;
+import ch.epfl.bio410.cost.SimpleDistanceCost;
+import ch.epfl.bio410.graph.DirectionVector;
 import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
 import ch.epfl.bio410.graph.Spots;
@@ -144,6 +146,9 @@ public class ProjectCommand implements Command {
 		PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension);
 		PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
 		cleanTraj.drawLines(tempDiff);
+
+		colorOrientation(cleanTraj);
+		cleanTraj.drawLines(tempDiff.duplicate());
 
 //		// Detection
 //		PartitionedGraph frames = detect(temporalExposure, sigma, threshold, tolerance);
@@ -462,7 +467,6 @@ public class ProjectCommand implements Command {
 	}
 
 	/**
-	 * TODO question 1 - fill the method description and input/output parameters
 	 * This method applies a DoG filter on every time frame of the ImagePlus input.
 	 * Then every spot on each frame is detected if the intensity is above the specified threshold.
 	 * The size of the spots detected is saved into the IJ log and they are added into a partitioned graph
@@ -550,6 +554,7 @@ public class ProjectCommand implements Command {
 	}
 
 
+	// TODO docstring
 	private PartitionedGraph directionalTracking(PartitionedGraph frames, AbstractDirCost cost, int dimension) {
 		PartitionedGraph trajectories = new PartitionedGraph();
 		for (Spots frame : frames) {
@@ -558,7 +563,6 @@ public class ProjectCommand implements Command {
 				if (trajectory == null) trajectory = trajectories.createPartition(spot);
 				if (spot.equals(trajectory.last())) {
 					int t0 = spot.t;
-					// TODO question 4 - add trajectory to the nearest spot of the next frame
 					for (int t=t0; t < frames.size() - 1; t++) {
 						double trajectory_cost = this.costmax; // set the first cost value to be the highest possible
 						Spot next_spot = null; // we first initialize the next_spot to be null
@@ -586,6 +590,7 @@ public class ProjectCommand implements Command {
 		return trajectories;
 	}
 
+	// TODO docstring
 	private PartitionedGraph cleaningTrajectories(PartitionedGraph frames, int min_length){
 		// trying to clean up minimal trajectories to lighten memory load
 		PartitionedGraph final_graph = new PartitionedGraph();
@@ -595,6 +600,49 @@ public class ProjectCommand implements Command {
 			}
 		}
 		return final_graph;
+	}
+
+	/**
+	 * This method maps the orientation of a vector to a color gradient
+	 * @param orientation angle of a vector, in radians
+	 * @return color the new color corresponding to the orientation
+	 */
+	private Color mapColor(double orientation){
+		float hue = (float) ((orientation + Math.PI) / (2 * Math.PI));
+		Color color = Color.getHSBColor(hue, 1f, 1f);
+		color = new Color(color.getRed(), color.getGreen(), color.getBlue(), 120);
+		return color;
+	}
+
+	public double getOrientation(double dx, double dy){
+		return Math.atan2(dy, dx); // in radians
+	}
+
+	public double getOrientation(Spot start, Spot end){
+		double dx = end.x - start.x;
+		double dy = end.y - start.y;
+		return getOrientation(dx,dy);
+	}
+
+	// TODO docstring
+	private void colorOrientation(PartitionedGraph input){
+		PartitionedGraph out = new PartitionedGraph();
+		SimpleDistanceCost dist = new SimpleDistanceCost(this.costmax);
+
+		for(Spots trajectory : input) {// looping through all the trajectories
+			/*
+			TODO for now we will use the "global" orientation of a trajectory  as a first approcimation to color it accordingly
+			   meaning we take the first and last spot of the trajectory as the starting and ending point of
+			   the vector and use this direction to color code --- might change this later depending on results
+			 */
+
+			Spot first_spot = trajectory.get(0);
+			Spot last_spot = trajectory.get(trajectory.size()-1);
+
+			double orientation = getOrientation(first_spot, last_spot);
+			Color newColor = mapColor(orientation);
+			trajectory.color = newColor;
+		}
 	}
 
 	/**

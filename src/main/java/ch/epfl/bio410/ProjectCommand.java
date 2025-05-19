@@ -32,7 +32,7 @@ import java.util.Objects;
 @Plugin(type = Command.class, menuPath = "Plugins>BII>Microtubule Gang")
 public class ProjectCommand implements Command {
 
-	private double costmax=0.5;
+	private double costmax = 0.5;
 	private double sigma ;  // sigma of the DoG TODO : adapt it
 	private double sigma1 ; // sigma1 of preprocessing : to remove background
 	private double sigma2 ; // sigma2 of preprocessing : what we want to keep from image
@@ -52,9 +52,10 @@ public class ProjectCommand implements Command {
 		
 		ImagePlus imp = IJ.openImage(filePath+fileName);
 
-		GenericDialog gd = new GenericDialog("Selecting the parameters");
+		GenericDialog gd = new GenericDialog("Welcome to the Microtubule Gang :)");
 
 		// user input parameters
+		gd.addMessage("Tuning of Parameters");
 		gd.addNumericField("Costmax:", 0.5, 3);
 		gd.addNumericField("Sigma:", 1, 2);
 		gd.addNumericField("Sigma1:", 5,2);
@@ -65,8 +66,39 @@ public class ProjectCommand implements Command {
 		gd.addNumericField("Lambda", 0.5, 3);
 		gd.addNumericField("Gamma", 0.3, 3);
 		gd.addNumericField("Kappa", 0.15, 3);
+		gd.addMessage("");
+
+		gd.addMessage("Coloring of Trajectories");
+		String[] coloringOptions = {
+				"Random",
+				"Global average orientation",
+				"Average local orientation",
+		};
+		gd.addChoice("Method", coloringOptions, coloringOptions[0]);
+		gd.addMessage("");
+
+		gd.addMessage("Results Options");
+		String[] resultsOptions = {
+				"Do not display",
+				"Display",
+		};
+		gd.addChoice("Color map legend", resultsOptions, resultsOptions[0]);
+		gd.addChoice("Distribution of speeds", resultsOptions, resultsOptions[0]);
+		gd.addMessage("");
+
+		gd.addMessage("Advanced Options");
+		String[] debugingOptions = {
+				"Do not display",
+				"Display",
+		};
+		gd.addChoice("Preprocessed stack", debugingOptions, debugingOptions[0]);
+		gd.addChoice("Temporal Projection", debugingOptions, debugingOptions[0]);
+		gd.addChoice("Detection of local max", debugingOptions, debugingOptions[0]);
+		gd.addChoice("Detection of spots", debugingOptions, debugingOptions[0]);
+		gd.addChoice("Costs of spots", debugingOptions, debugingOptions[0]);
 
 		gd.showDialog();
+		if (gd.wasCanceled()) return;
 
 		// retrieve the values from GUI
 		costmax = gd.getNextNumber();
@@ -79,9 +111,18 @@ public class ProjectCommand implements Command {
 		lambda = gd.getNextNumber();
 		gamma = gd.getNextNumber();
 		kappa = gd.getNextNumber();
+		String choiceColoring = gd.getNextChoice();
+		String choiceLegend = gd.getNextChoice();
+		String choiceDistribSpeed = gd.getNextChoice();
+		String choicePreprocessedStack = gd.getNextChoice();
+		String choiceTempProj = gd.getNextChoice();
+		String choiceDetectLocalMax = gd.getNextChoice();
+		String choiceSpotsDetection = gd.getNextChoice();
+		String choiceSpotsCosts= gd.getNextChoice();
 
 		// convert the image to 32 bits for downstream calculations
 		IJ.run(imp, "32-bit", "");
+		imp.setTitle("Original Image");
 		imp.show();
 
 		ImagePlus result = processStack(imp, ip -> dog(ip, sigma1, sigma2));
@@ -89,11 +130,16 @@ public class ProjectCommand implements Command {
 		outputstack.setTitle("Preprocessed Stack");
 		IJ.run(outputstack, "Median...", "radius=1 stack");
 
-		// enhance contrast on pre-processed image
-		double max_pixel_value_1 = outputstack.getStatistics().max ;
-		outputstack.setDisplayRange(0, max_pixel_value_1);
-		outputstack.updateAndDraw();
-		outputstack.show();
+		switch (choicePreprocessedStack) {
+			case "Do not display":
+				break;
+			case "Display":
+				double max_pixel_value_preprocess = outputstack.getStatistics().max ;
+				outputstack.setDisplayRange(0, max_pixel_value_preprocess);
+				outputstack.updateAndDraw();
+				outputstack.show();
+				break;
+		}
 
 		// temporal projection using the wrapper
 		TemporalProjector tp = new TemporalProjector(outputstack, "sum", "left", windowExp);
@@ -101,25 +147,78 @@ public class ProjectCommand implements Command {
 
 		TemporalDifferencer diff = new TemporalDifferencer(temporalExposure, windowDiff);
 		ImagePlus tempDiff = processStack(temporalExposure, (ImageProcessor ip) -> diff.apply(ip));
-		tempDiff.setTitle("Temporal Projection");
-		tempDiff.setDisplayRange(0, tempDiff.getStatistics().max );
-		tempDiff.updateAndDraw();
-		tempDiff.show();
 
-		PartitionedGraph framesDiff = detect(tempDiff,1,5);
-		framesDiff.drawSpots(tempDiff);
-		AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
+		switch (choiceTempProj) {
+			case "Do not display":
+				break;
+			case "Display":
+				tempDiff.setTitle("Temporal Projection");
+				tempDiff.setDisplayRange(0, tempDiff.getStatistics().max );
+				tempDiff.updateAndDraw();
+				tempDiff.show();
+				break;
+		}
+
+		boolean userChoiceLocalMax = false;
+		switch (choiceDetectLocalMax) {
+			case "Do not display":
+				break;
+			case "Display":
+				userChoiceLocalMax = true;
+				break;
+		}
+
+		PartitionedGraph framesDiff = detect(tempDiff,1,5, userChoiceLocalMax);
+
+		switch (choiceSpotsDetection) {
+			case "Do not display":
+				break;
+			case "Display":
+				framesDiff.drawSpots(tempDiff);
+				break;
+		}
 
 		int dimension = 20;
-		PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension);
-		PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
-		cleanTraj.drawLines(tempDiff);
+		boolean userChoiceCosts = false;
+		switch (choiceSpotsCosts) {
+			case "Do not display":
+				break;
+			case "Display":
+				userChoiceCosts = true;
+				break;
+		}
 
-		colorOrientation(cleanTraj);
-//		colorOrientationAverage(cleanTraj);
+		AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
+		PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension, userChoiceCosts);
+		PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
+
 		ImagePlus final_imp = tempDiff.duplicate();
-		cleanTraj.drawLines(final_imp);
-		addLegend(final_imp, "Orientation track map (rad)");
+		switch (choiceColoring) {
+			case "Random":
+				final_imp.setTitle("with Random Coloring");
+				break;
+			case "Global average orientation":
+				final_imp.setTitle("with Global Average Orientation Coloring");
+				colorOrientation(cleanTraj);
+				break;
+			case "Average local orientation":
+				final_imp.setTitle("with Average Local Orientation Coloring");
+				colorOrientationAverage(cleanTraj);
+				break;
+		}
+
+		switch (choiceLegend) {
+			case "Do not display":
+				cleanTraj.drawLines(final_imp);
+				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
+				final_imp.updateAndDraw();
+				break;
+			case "Display":
+				cleanTraj.drawLines(final_imp);
+				final_imp.hide(); // TODO: à vérifier avec Gabi si il n'y a pas de meilleure solution
+				addLegend(final_imp, "Orientation track map (rad)", final_imp.getTitle());
+				break;
+		}
 	}
 
 
@@ -267,18 +366,20 @@ public class ProjectCommand implements Command {
 	 * @param threshold the threshold of intensity to detect spots in the image input imp
 	 * @return Graph that contains the spots detected
 	 */
-	private PartitionedGraph detect(ImagePlus imp, double sigma, double threshold) {
+	private PartitionedGraph detect(ImagePlus imp, double sigma, double threshold, boolean user_choice) {
 
 		int nt = imp.getNFrames();
-		new ImagePlus("DoG", classic_dog(imp.getProcessor(), sigma)).show();
+		new ImagePlus("DoG", classic_dog(imp.getProcessor(), sigma));
 		PartitionedGraph graph = new PartitionedGraph();
 		for (int t = 0; t < nt; t++) {
 			imp.setPosition(1, 1, 1+t);
 			ImageProcessor ip = imp.getProcessor();
 			ImageProcessor dog = classic_dog(ip, sigma);
 			Spots spots = localMax(dog, ip, t, threshold);
-			IJ.log("Frame t:" + t + " #localmax:" + spots.size() );
 			graph.add(spots);
+			if (user_choice) {
+				IJ.log("Frame t:" + t + " #localmax:" + spots.size() );
+			}
 		}
 		return graph;
 	}
@@ -298,7 +399,7 @@ public class ProjectCommand implements Command {
 	 * @param dimension the integer specifying a dimensional constraint for cost evaluation
 	 * @return Partitioned Graph where each partition corresponds to a tracked trajectory
 	 */
-	private PartitionedGraph directionalTracking(PartitionedGraph frames, AbstractDirCost cost, int dimension) {
+	private PartitionedGraph directionalTracking(PartitionedGraph frames, AbstractDirCost cost, int dimension, boolean user_choice) {
 		PartitionedGraph trajectories = new PartitionedGraph();
 		for (Spots frame : frames) {
 			for (Spot spot : frame) {
@@ -320,9 +421,11 @@ public class ProjectCommand implements Command {
 						}
 						if (next_spot != null) { // check that we found a next spot to add to the trajectory
 							// after iteration over all spots on next frame, final spot is saved in next spot
-							IJ.log("#" + trajectories.size() + " spot " + next_spot + " with a cost:" + trajectory_cost);
 							trajectory.add(next_spot);
 							spot = next_spot;
+							if(user_choice){
+								IJ.log("#" + trajectories.size() + " spot " + next_spot + " with a cost:" + trajectory_cost);
+							}
 						} else {
 							break;  // no valid match found, stop this trajectory
 						}
@@ -463,13 +566,16 @@ public class ProjectCommand implements Command {
 	 * @param imp input ImagePlus displaying the colored trajectories
 	 * @param legend_title title for the color map legend
 	 */
-	private void addLegend(ImagePlus imp, String legend_title) {
+	private void addLegend(ImagePlus imp, String legend_title, String imp_title) {
 		int width = imp.getWidth();
 		int height = imp.getHeight();
 		int legendWidth = 500 ;
 		int legendHeight = 50 ;
 		int padding = 100;
 		int newHeight = height + padding;
+
+		imp.setDisplayRange(0, imp.getStatistics().max );
+		imp.updateAndDraw();
 
 		ImageStack newStack = new ImageStack(width, newHeight);
 		for (int t = 1; t <= imp.getNFrames(); t++) {
@@ -487,13 +593,13 @@ public class ProjectCommand implements Command {
 			newStack.addSlice(paddedFp);
 		}
 
-		ImagePlus paddedImp = new ImagePlus("With Legend", newStack);
-		paddedImp.setDimensions(1, 1, imp.getNFrames());
-		paddedImp.setCalibration(imp.getCalibration());
-		paddedImp.setOverlay(imp.getOverlay());
-		paddedImp.setDisplayRange(imp.getDisplayRangeMin(), imp.getDisplayRangeMax());
-		paddedImp.setPosition(1, 1, imp.getT());
-		ImageProcessor legendIp = paddedImp.getProcessor().convertToRGB();
+		ImagePlus padded_imp = new ImagePlus("With Legend", newStack);
+		padded_imp.setDimensions(1, 1, imp.getNFrames());
+		padded_imp.setCalibration(imp.getCalibration());
+		padded_imp.setOverlay(imp.getOverlay());
+		padded_imp.setDisplayRange(imp.getDisplayRangeMin(), imp.getDisplayRangeMax());
+		padded_imp.setPosition(1, 1, imp.getT());
+		ImageProcessor legendIp = padded_imp.getProcessor().convertToRGB();
 
 		int barX = (width - legendWidth) / 2;
 		int barY = height;
@@ -514,8 +620,9 @@ public class ProjectCommand implements Command {
 		legendIp.setFont(new Font("SansSerif", Font.PLAIN, 18));
 		legendIp.drawString(legend_title, width / 2 - 110, barY + legendHeight + 40);
 
-		paddedImp.setProcessor("With Legend", legendIp);
-		paddedImp.show();
+		padded_imp.setProcessor("With Legend", legendIp);
+		padded_imp.setTitle(imp_title);
+		padded_imp.show();
 	}
 
 

@@ -12,14 +12,12 @@ import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.GenericDialog;
+import ij.gui.ImageRoi;
+import ij.gui.Overlay;
+import ij.gui.TextRoi;
 import ij.io.OpenDialog;
-import ij.plugin.GaussianBlur3D;
-import ij.plugin.ImageCalculator;
-import ij.plugin.ZProjector;
-import ij.process.Blitter;
-import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
-import ij.process.ImageStatistics;
+import ij.plugin.*;
+import ij.process.*;
 import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
@@ -41,7 +39,6 @@ public class ProjectCommand implements Command {
 	private int windowExp ; // size of window to increase exposure
 	private int windowDiff ; // size of window to delete continuous tracks
 	private double threshold ; // threshold of intensity to detect spots
-	// private double tolerance ; // tolerance of spots detected around one spot TODO: not used anymore, I think it should be deleted
 	private double lambda ; // weight of distance in cost computation
 	private double gamma ; // weight of direction in cost computation
 	private double kappa ;
@@ -65,7 +62,6 @@ public class ProjectCommand implements Command {
 		gd.addNumericField("WindowExp", 3, 1);
 		gd.addNumericField("WindowDiff", 1, 1);
 		gd.addNumericField("Threshold", 10, 3);
-		//gd.addNumericField("Tolerance", 0, 1); TODO: not used anymore, I think it should be deleted
 		gd.addNumericField("Lambda", 0.5, 3);
 		gd.addNumericField("Gamma", 0.3, 3);
 		gd.addNumericField("Kappa", 0.15, 3);
@@ -80,7 +76,6 @@ public class ProjectCommand implements Command {
 		windowExp = (int) gd.getNextNumber();
 		windowDiff = (int) gd.getNextNumber();
 		threshold = gd.getNextNumber();
-		// tolerance = gd.getNextNumber(); TODO: not used anymore, I think it should be deleted
 		lambda = gd.getNextNumber();
 		gamma = gd.getNextNumber();
 		kappa = gd.getNextNumber();
@@ -122,7 +117,9 @@ public class ProjectCommand implements Command {
 
 		colorOrientation(cleanTraj);
 //		colorOrientationAverage(cleanTraj);
-		cleanTraj.drawLines(tempDiff.duplicate());
+		ImagePlus final_imp = tempDiff.duplicate();
+		cleanTraj.drawLines(final_imp);
+		addLegend(final_imp, "Orientation track map (rad)");
 	}
 
 
@@ -415,11 +412,6 @@ public class ProjectCommand implements Command {
 		SimpleDistanceCost dist = new SimpleDistanceCost(this.costmax);
 
 		for(Spots trajectory : input) {// looping through all the trajectories
-			/*
-			TODO for now we will use the "global" orientation of a trajectory  as a first approcimation to color it accordingly
-			   meaning we take the first and last spot of the trajectory as the starting and ending point of
-			   the vector and use this direction to color code --- might change this later depending on results
-			 */
 
 			Spot first_spot = trajectory.get(0);
 			Spot last_spot = trajectory.get(trajectory.size()-1);
@@ -462,70 +454,68 @@ public class ProjectCommand implements Command {
 
 
 	/**
-	 * This method assigns a color to each trajectory based on a distance-weighted average of its local orientations.
-	 * Each orientation between two consecutive spots is weighted by the Euclidean distance between them.
-	 * This emphasizes segments where the spot moves farther, under the assumption that they better represent
-	 * motion direction, and the dominant movement directions in trajectories with variable speeds.
+	 * This method adds a horizontal color map legend below each frame of an ImagePlus stack and displays the modified
+	 * image. The legend is a color bar representing orientations of trajectories from -π to π.
+	 * This method pads each frame of the original image vertically to make room for the legend, copies the original
+	 * content into the new frame, fills the padded region with white, and then draws a color gradient representing
+	 * angles from -π to π using a color mapping function.
 	 *
-	 * @param input input PartitionedGraph containing trajectories
+	 * @param imp input ImagePlus displaying the colored trajectories
+	 * @param legend_title title for the color map legend
 	 */
-	private void colorOrientationWeightedByDistance(PartitionedGraph input) {
-		for (Spots trajectory : input) {
-			if (trajectory.size() < 2) continue;
+	private void addLegend(ImagePlus imp, String legend_title) {
+		int width = imp.getWidth();
+		int height = imp.getHeight();
+		int legendWidth = 500 ;
+		int legendHeight = 50 ;
+		int padding = 100;
+		int newHeight = height + padding;
 
-			double weightedSum = 0;
-			double totalWeight = 0;
-
-			for (int i = 0; i < trajectory.size() - 1; i++) {
-				Spot a = trajectory.get(i);
-				Spot b = trajectory.get(i + 1);
-				double dist = a.distance(b);
-				double orientation = getOrientation(a, b);
-
-				weightedSum += orientation * dist;
-				totalWeight += dist;
+		ImageStack newStack = new ImageStack(width, newHeight);
+		for (int t = 1; t <= imp.getNFrames(); t++) {
+			imp.setPositionWithoutUpdate(1, 1, t);
+			FloatProcessor originalFp = (FloatProcessor) imp.getProcessor();
+			FloatProcessor paddedFp = new FloatProcessor(width, newHeight);
+			// Copy image
+			paddedFp.insert(originalFp, 0, 0);
+			// Fill padding with white
+			for (int y = height; y < newHeight; y++) {
+				for (int x = 0; x < width; x++) {
+					paddedFp.setf(x, y, 255);  // white
+				}
 			}
-
-			double avgOrientation = (totalWeight > 0) ? weightedSum / totalWeight : 0;
-			Color newColor = mapColor(avgOrientation);
-			trajectory.color = newColor;
+			newStack.addSlice(paddedFp);
 		}
-	}
 
+		ImagePlus paddedImp = new ImagePlus("With Legend", newStack);
+		paddedImp.setDimensions(1, 1, imp.getNFrames());
+		paddedImp.setCalibration(imp.getCalibration());
+		paddedImp.setOverlay(imp.getOverlay());
+		paddedImp.setDisplayRange(imp.getDisplayRangeMin(), imp.getDisplayRangeMax());
+		paddedImp.setPosition(1, 1, imp.getT());
+		ImageProcessor legendIp = paddedImp.getProcessor().convertToRGB();
 
-	/**
-	 * This method assigns a color to each trajectory based on a speed-weighted average of its local orientations.
-	 * For each pair of consecutive spots, the orientation is weighted by the speed. This gives more influence to
-	 * fast-moving segments when determining the trajectory's dominant orientation.
-	 *
-	 * @param input input PartitionedGraph containing trajectories
-	 */
-	private void colorOrientationWeightedBySpeed(PartitionedGraph input) {
-		for (Spots trajectory : input) {
-			if (trajectory.size() < 2) continue;
-
-			double weightedSum = 0;
-			double totalWeight = 0;
-
-			for (int i = 0; i < trajectory.size() - 1; i++) {
-				Spot a = trajectory.get(i);
-				Spot b = trajectory.get(i + 1);
-
-				double dt = Math.abs(b.t - a.t);
-				if (dt == 0) continue;
-
-				double dist = a.distance(b);
-				double speed = dist / dt;
-				double orientation = getOrientation(a, b);
-
-				weightedSum += orientation * speed;
-				totalWeight += speed;
+		int barX = (width - legendWidth) / 2;
+		int barY = height;
+		for (int i = 0; i < legendWidth; i++) {
+			double angle = (2 * Math.PI) * i / (double) (legendWidth - 1);
+			Color c = mapColor(angle);
+			for (int j = 0; j < legendHeight; j++) {
+				legendIp.setColor(c);
+				legendIp.drawPixel(barX + i, barY + j);
 			}
-
-			double avgOrientation = (totalWeight > 0) ? weightedSum / totalWeight : 0;
-			Color newColor = mapColor(avgOrientation);
-			trajectory.color = newColor;
 		}
+
+		legendIp.setColor(Color.BLACK);
+		legendIp.setFont(new Font("SansSerif", Font.PLAIN, 14));
+		legendIp.drawString("-π", barX - 10, barY + legendHeight + 20);
+		legendIp.drawString("π", barX + legendWidth - 10, barY + legendHeight + 20);
+		legendIp.setColor(Color.BLACK);
+		legendIp.setFont(new Font("SansSerif", Font.PLAIN, 18));
+		legendIp.drawString(legend_title, width / 2 - 110, barY + legendHeight + 40);
+
+		paddedImp.setProcessor("With Legend", legendIp);
+		paddedImp.show();
 	}
 
 

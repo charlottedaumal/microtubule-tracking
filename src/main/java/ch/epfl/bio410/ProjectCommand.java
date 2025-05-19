@@ -122,7 +122,11 @@ public class ProjectCommand implements Command {
 		cleanTraj.drawLines(tempDiff);
 
 		colorOrientation(cleanTraj);
+		//colorOrientationAverage(cleanTraj);
+		//colorOrientationWeightedByDistance(cleanTraj);
+		//colorOrientationWeightedBySpeed(cleanTraj);
 		cleanTraj.drawLines(tempDiff.duplicate());
+
 
 		// TODO: decide what to do with these lines of code (how do we implement finally the median filtering ?)
 
@@ -357,7 +361,7 @@ public class ProjectCommand implements Command {
 	 * It iterates through each trajectory in the input graph and retains only those whose length (i.e., number of spots)
 	 * exceeds the specified threshold.
 	 *
-	 * @param frames the input Partitioned Graph
+	 * @param frames input Partitioned Graph
 	 * @param min_length the minimum number of spots a trajectory must have to be retained (threshold)
 	 * @return Partitioned Graph containing trajectories only longer than the chosen threshold
 	 */
@@ -422,7 +426,7 @@ public class ProjectCommand implements Command {
 	 * this method computes the "global" orientation by taking the vector from the first to the last spot in the
 	 * trajectory. This orientation is then mapped to a specific color, and the trajectory is annotated with this color.
 	 *
-	 * @param input Partitioned Graph containing trajectories
+	 * @param input input Partitioned Graph containing trajectories
 	 */
 	private void colorOrientation(PartitionedGraph input){
 		PartitionedGraph out = new PartitionedGraph();
@@ -440,6 +444,104 @@ public class ProjectCommand implements Command {
 
 			double orientation = getOrientation(first_spot, last_spot);
 			Color newColor = mapColor(orientation);
+			trajectory.color = newColor;
+		}
+	}
+
+
+	/**
+	 * This method assigns a color to each trajectory based on its average local orientation.
+	 * The orientation between each pair of consecutive spots is computed,
+	 * and the mean of these orientations is used to determine the color via a colormap.
+	 * This method is more robust than using only the global direction, as it accounts for curvature and small changes
+	 * in direction across the trajectory.
+	 *
+	 * @param input input PartitionedGraph containing trajectories
+	 */
+	private void colorOrientationAverage(PartitionedGraph input) {
+		for (Spots trajectory : input) {
+			if (trajectory.size() < 2) continue; // to make sure no division by zero happens
+
+			double sumOrientation = 0;
+			int count = 0;
+
+			for (int i = 0; i < trajectory.size() - 1; i++) {
+				Spot a = trajectory.get(i);
+				Spot b = trajectory.get(i + 1);
+				sumOrientation += getOrientation(a, b);
+				count++;
+			}
+
+			double avgOrientation = sumOrientation / count;
+			Color newColor = mapColor(avgOrientation);
+			trajectory.color = newColor;
+		}
+	}
+
+
+	/**
+	 * This method assigns a color to each trajectory based on a distance-weighted average of its local orientations.
+	 * Each orientation between two consecutive spots is weighted by the Euclidean distance between them.
+	 * This emphasizes segments where the spot moves farther, under the assumption that they better represent
+	 * motion direction, and the dominant movement directions in trajectories with variable speeds.
+	 *
+	 * @param input input PartitionedGraph containing trajectories
+	 */
+	private void colorOrientationWeightedByDistance(PartitionedGraph input) {
+		for (Spots trajectory : input) {
+			if (trajectory.size() < 2) continue;
+
+			double weightedSum = 0;
+			double totalWeight = 0;
+
+			for (int i = 0; i < trajectory.size() - 1; i++) {
+				Spot a = trajectory.get(i);
+				Spot b = trajectory.get(i + 1);
+				double dist = a.distance(b);
+				double orientation = getOrientation(a, b);
+
+				weightedSum += orientation * dist;
+				totalWeight += dist;
+			}
+
+			double avgOrientation = (totalWeight > 0) ? weightedSum / totalWeight : 0;
+			Color newColor = mapColor(avgOrientation);
+			trajectory.color = newColor;
+		}
+	}
+
+
+	/**
+	 * This method assigns a color to each trajectory based on a speed-weighted average of its local orientations.
+	 * For each pair of consecutive spots, the orientation is weighted by the speed. This gives more influence to
+	 * fast-moving segments when determining the trajectory's dominant orientation.
+	 *
+	 * @param input input PartitionedGraph containing trajectories
+	 */
+	private void colorOrientationWeightedBySpeed(PartitionedGraph input) {
+		for (Spots trajectory : input) {
+			if (trajectory.size() < 2) continue;
+
+			double weightedSum = 0;
+			double totalWeight = 0;
+
+			for (int i = 0; i < trajectory.size() - 1; i++) {
+				Spot a = trajectory.get(i);
+				Spot b = trajectory.get(i + 1);
+
+				double dt = Math.abs(b.t - a.t);
+				if (dt == 0) continue;
+
+				double dist = a.distance(b);
+				double speed = dist / dt;
+				double orientation = getOrientation(a, b);
+
+				weightedSum += orientation * speed;
+				totalWeight += speed;
+			}
+
+			double avgOrientation = (totalWeight > 0) ? weightedSum / totalWeight : 0;
+			Color newColor = mapColor(avgOrientation);
 			trajectory.color = newColor;
 		}
 	}

@@ -105,7 +105,7 @@ public class ProjectCommand implements Command {
 		ImagePlus temporalExposure = processStack(outputstack, (ImageProcessor ip) -> tp.apply(ip));
 
 		TemporalDifferencer diff = new TemporalDifferencer(temporalExposure, windowDiff);
-		ImagePlus tempDiff = processStack(imp, (ImageProcessor ip) -> diff.apply(ip));
+		ImagePlus tempDiff = processStack(temporalExposure, (ImageProcessor ip) -> diff.apply(ip));
 		tempDiff.setTitle("Temporal Projection");
 		tempDiff.setDisplayRange(0, tempDiff.getStatistics().max );
 		tempDiff.updateAndDraw();
@@ -116,31 +116,13 @@ public class ProjectCommand implements Command {
 		AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
 
 		int dimension = 20;
-//		PartitionedGraph trajectories = trackToFirstValidTrajectory(frames, cost);
 		PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension);
 		PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
 		cleanTraj.drawLines(tempDiff);
 
 		colorOrientation(cleanTraj);
-		//colorOrientationAverage(cleanTraj);
-		//colorOrientationWeightedByDistance(cleanTraj);
-		//colorOrientationWeightedBySpeed(cleanTraj);
+//		colorOrientationAverage(cleanTraj);
 		cleanTraj.drawLines(tempDiff.duplicate());
-
-
-		// TODO: decide what to do with these lines of code (how do we implement finally the median filtering ?)
-
-		/* Old block to perform temporal median filtering through a function
-		ImagePlus medianImp = temporalMedianFilter(imp, "Median Stack", 15);
-//		 medianImp.show(); */
-
-		/* Old block to perform median filtering with simple command
-		ImagePlus median2Imp = imp.duplicate();
-		median2Imp.setTitle("Median 2 Stack");
-		IJ.run(median2Imp, "Median...", "radius=15 stack");
-		ImagePlus medianProcessed2Imp = ImageCalculator.run(imp, median2Imp, "Subtract create stack");
-//		medianProcessed2Imp.show(); */
-
 	}
 
 

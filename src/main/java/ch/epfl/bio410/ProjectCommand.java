@@ -3,11 +3,13 @@ package ch.epfl.bio410;
 import ch.epfl.bio410.cost.AbstractDirCost;
 import ch.epfl.bio410.cost.DirectionCost;
 import ch.epfl.bio410.cost.SimpleDistanceCost;
+import ch.epfl.bio410.graph.DirectionVector;
 import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
 import ch.epfl.bio410.graph.Spots;
 import ch.epfl.bio410.utils.TemporalDifferencer;
 import ch.epfl.bio410.utils.TemporalProjector;
+import ch.epfl.bio410.utils.TrackingFunctions;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
@@ -55,18 +57,25 @@ public class ProjectCommand implements Command {
 		GenericDialog gd = new GenericDialog("Welcome to the Microtubule Gang :)");
 
 		// user input parameters
-		gd.addMessage("Tuning of Parameters");
-		gd.addNumericField("Costmax:", 0.5, 3);
-		gd.addNumericField("Sigma:", 1, 2);
+		gd.addMessage("Preprocessing");
 		gd.addNumericField("Sigma1:", 5,2);
 		gd.addNumericField("Sigma2:", 1.25,2);
 		gd.addNumericField("WindowExp", 3, 1);
+
+		gd.addMessage("Segmentation");
+		gd.addNumericField("Sigma:", 1, 2);
+		gd.addNumericField("Threshold", 5, 3);
 		gd.addNumericField("WindowDiff", 1, 1);
-		gd.addNumericField("Threshold", 10, 3);
+
+		gd.addMessage("Tracking");
+		gd.addNumericField("Costmax:", 0.5, 3);
 		gd.addNumericField("Lambda", 0.5, 3);
 		gd.addNumericField("Gamma", 0.3, 3);
 		gd.addNumericField("Kappa", 0.15, 3);
 		gd.addMessage("");
+
+		gd.addMessage("Display options");
+		//TODO change message text in bold if possible ??
 
 		gd.addMessage("Coloring of Trajectories");
 		String[] coloringOptions = {
@@ -101,16 +110,21 @@ public class ProjectCommand implements Command {
 		if (gd.wasCanceled()) return;
 
 		// retrieve the values from GUI
-		costmax = gd.getNextNumber();
-		sigma = gd.getNextNumber();
+
+		//preprocessing
 		sigma1 = gd.getNextNumber();
 		sigma2 = gd.getNextNumber();
 		windowExp = (int) gd.getNextNumber();
-		windowDiff = (int) gd.getNextNumber();
+		//segmentation
+		sigma = gd.getNextNumber();
 		threshold = gd.getNextNumber();
+		windowDiff = (int) gd.getNextNumber();
+		//tracking
+		costmax = gd.getNextNumber();
 		lambda = gd.getNextNumber();
 		gamma = gd.getNextNumber();
 		kappa = gd.getNextNumber();
+
 		String choiceColoring = gd.getNextChoice();
 		String choiceLegend = gd.getNextChoice();
 		String choiceDistribSpeed = gd.getNextChoice();
@@ -168,7 +182,7 @@ public class ProjectCommand implements Command {
 				break;
 		}
 
-		PartitionedGraph framesDiff = detect(tempDiff,1,5, userChoiceLocalMax);
+		PartitionedGraph framesDiff = detect(tempDiff,sigma,threshold, userChoiceLocalMax);
 
 		switch (choiceSpotsDetection) {
 			case "Do not display":
@@ -625,6 +639,21 @@ public class ProjectCommand implements Command {
 		padded_imp.show();
 	}
 
+	private double computeSpeed(PartitionedGraph frames){
+		double dt = 1.0;
+		for(Spots trajectory : frames){
+			for (int i = 0; i < trajectory.size() - 1; i++) {
+				Spot a = trajectory.get(i);
+				Spot b = trajectory.get(i + 1);
+
+				double dx     = b.x - a.x;
+				double dy     = b.y - a.y;
+				double speedAtoB = Math.sqrt(dx*dx + dy*dy ) / dt; // speed from a to b
+				// TODO find frame time interval !!!
+			}
+		}
+
+	}
 
 	// Below are functions we coded, but we don't use anymore
 	/* TODO: decide whether we should keep them or not (for me we can delete them now, they are still accessible in the

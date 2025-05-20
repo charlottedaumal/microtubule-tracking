@@ -68,6 +68,7 @@ public class DirectionCost implements AbstractDirCost {
         // Distance
         double maxAllowedDistance = 10;             // px
         double dt                 = 1.0;            // frame interval
+        // TODO find frame interval !!!
         SimpleDistanceCost dist = new SimpleDistanceCost(costMax);
 
         double distance = dist.evaluate(a, b);

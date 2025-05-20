@@ -83,6 +83,18 @@
             <roles><role>maintainer</role></roles>
             <properties><id>dornier</id></properties>
         </contributor>
+        <contributor>
+            <name>Charlotte Daumal</name>
+            <url>https://people.epfl.ch/charlotte.daumal</url>
+            <roles><role>developper</role></roles>
+            <properties><id>daumal</id></properties>
+        </contributor>
+        <contributor>
+            <name>Gabrielle Blouvac</name>
+            <url>https://people.epfl.ch/gabrielle.blouvac</url>
+            <roles><role>developper</role></roles>
+            <properties><id>blouvac</id></properties>
+        </contributor>
     </contributors>
 
     <mailingLists>
@@ -119,6 +131,8 @@
         <package-name>ch.epfl.bio410</package-name>
         <license.licenseName>gpl_v3</license.licenseName>
         <!-- Add the name of the group members as copyright owners -->
+        <license.copyrightOwners>Gabrielle Blouvac</license.copyrightOwners>
+        <license.copyrightOwners>Charlotte Daumal</license.copyrightOwners>
         <license.copyrightOwners>ECOLE POLYTECHNIQUE FEDERALE DE LAUSANNE, Switzerland</license.copyrightOwners>
     </properties>
 

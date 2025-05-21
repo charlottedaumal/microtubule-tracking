@@ -38,29 +38,29 @@ public class DirectionCost implements AbstractDirCost {
         this.normInt = ZProjector.run(imp,"max").getStatistics().max - ZProjector.run(imp,"min").getStatistics().min;
     }
 
+    @Override
+    public double evaluate(Spot a, Spot b, PartitionedGraph frames, int dimension) {
+        double maxAllowedDistance = 10;
+        SimpleDistanceCost dist = new SimpleDistanceCost(costMax);
 
-//    public double evaluate(Spot a, Spot b, PartitionedGraph frames, int dimension) {
-//        double maxAllowedDistance = 10;
-//        SimpleDistanceCost dist = new SimpleDistanceCost(costMax);
-//
-//        double intensityDiff = Math.abs(a.value - b.value);
-//        double distance = dist.evaluate(a, b);
-//
-//        DirectionVector dira = TrackingFunctions.findDirection(a, frames, dimension);
-//        DirectionVector dirb = TrackingFunctions.findDirection(b, frames, dimension);
-//
-//        double directionSimilarity = dira.cosineSimilarity(dirb); // value between -1 and 1
-//
-//        if (distance > maxAllowedDistance) return Double.POSITIVE_INFINITY;
-//
-//        // Combine into a cost (lower is better)
-//        return this.lambda * dist.evaluate(a, b) / this.normDist +
-//                this.gamma * (1 - Math.max(0, directionSimilarity)) +
-//                (1 - this.lambda - this.gamma)*Math.abs(a.value - b.value)/this.normInt;
-//    }
+        double intensityDiff = Math.abs(a.value - b.value);
+        double distance = dist.evaluate(a, b);
+
+        DirectionVector dira = TrackingFunctions.findDirection(a, frames, dimension);
+        DirectionVector dirb = TrackingFunctions.findDirection(b, frames, dimension);
+
+        double directionSimilarity = dira.cosineSimilarity(dirb); // value between -1 and 1
+
+        if (distance > maxAllowedDistance) return Double.POSITIVE_INFINITY;
+
+        // Combine into a cost (lower is better)
+        return this.lambda * dist.evaluate(a, b) / this.normDist +
+                this.gamma * (1 - Math.max(0, directionSimilarity)) +
+                (1 - this.lambda - this.gamma)*Math.abs(a.value - b.value)/this.normInt;
+    }
 
     @Override
-    public double evaluate(Spot a,
+    public double evaluate_withSpeed(Spot a,
                            Spot b,
                            PartitionedGraph frames,
                            int dimension)

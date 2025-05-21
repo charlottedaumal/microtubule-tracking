@@ -16,6 +16,7 @@ public interface AbstractDirCost {
 
     public abstract boolean validate(Spot a, Spot b, PartitionedGraph frames, int dimension);
     public abstract double evaluate(Spot a, Spot b, PartitionedGraph frames, int dimension);
+    public abstract double evaluate_withSpeed(Spot a, Spot b, PartitionedGraph frames, int dimension);
 
 
 }

@@ -2,9 +2,9 @@
 
 ## 📖 Description 
 
-This pluggin has been developped to allow for a fast and efficient way to 
+This plugin has been developed to allow for a fast and efficient way to 
 track fluorescently tagged EB-3 proteins in a cell to study microtubule dynamics.
-In this pluggin was included : 
+In this plugin was included : 
 - color coding of the trajectories according to the orientation
 - computation of the microtubule speed 
 

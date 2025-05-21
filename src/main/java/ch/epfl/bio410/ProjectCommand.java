@@ -3,21 +3,18 @@ package ch.epfl.bio410;
 import ch.epfl.bio410.cost.AbstractDirCost;
 import ch.epfl.bio410.cost.DirectionCost;
 import ch.epfl.bio410.cost.SimpleDistanceCost;
-import ch.epfl.bio410.graph.DirectionVector;
 import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
 import ch.epfl.bio410.graph.Spots;
 import ch.epfl.bio410.utils.TemporalDifferencer;
 import ch.epfl.bio410.utils.TemporalProjector;
-import ch.epfl.bio410.utils.TrackingFunctions;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.GenericDialog;
-import ij.gui.ImageRoi;
-import ij.gui.Overlay;
-import ij.gui.TextRoi;
+import ij.gui.Plot;
 import ij.io.OpenDialog;
+import ij.measure.Calibration;
 import ij.plugin.*;
 import ij.process.*;
 import net.imagej.ImageJ;
@@ -25,10 +22,8 @@ import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.List;
-import java.util.Objects;
 
 
 @Plugin(type = Command.class, menuPath = "Plugins>BII>Microtubule Gang")
@@ -57,20 +52,28 @@ public class ProjectCommand implements Command {
 		GenericDialog gd = new GenericDialog("Welcome to the Microtubule Gang :)");
 
 		// user input parameters
-		gd.addMessage("Preprocessing");
+
+		gd.addMessage(" Preprocessing ");
 		gd.addNumericField("Sigma1:", 5,2);
+		gd.addToSameRow();
 		gd.addNumericField("Sigma2:", 1.25,2);
+		gd.addToSameRow();
 		gd.addNumericField("WindowExp", 3, 1);
 
 		gd.addMessage("Segmentation");
+
 		gd.addNumericField("Sigma:", 1, 2);
+		gd.addToSameRow();
 		gd.addNumericField("Threshold", 5, 3);
+		gd.addToSameRow();
 		gd.addNumericField("WindowDiff", 1, 1);
 
 		gd.addMessage("Tracking");
 		gd.addNumericField("Costmax:", 0.5, 3);
+		gd.addToSameRow();
 		gd.addNumericField("Lambda", 0.5, 3);
 		gd.addNumericField("Gamma", 0.3, 3);
+		gd.addToSameRow();
 		gd.addNumericField("Kappa", 0.15, 3);
 		gd.addMessage("");
 
@@ -84,7 +87,6 @@ public class ProjectCommand implements Command {
 				"Average local orientation",
 		};
 		gd.addChoice("Method", coloringOptions, coloringOptions[0]);
-		gd.addMessage("");
 
 		gd.addMessage("Results Options");
 		String[] resultsOptions = {
@@ -92,8 +94,8 @@ public class ProjectCommand implements Command {
 				"Display",
 		};
 		gd.addChoice("Color map legend", resultsOptions, resultsOptions[0]);
+		gd.addToSameRow();
 		gd.addChoice("Distribution of speeds", resultsOptions, resultsOptions[0]);
-		gd.addMessage("");
 
 		gd.addMessage("Advanced Options");
 		String[] debugingOptions = {
@@ -101,9 +103,13 @@ public class ProjectCommand implements Command {
 				"Display",
 		};
 		gd.addChoice("Preprocessed stack", debugingOptions, debugingOptions[0]);
+		gd.addToSameRow();
 		gd.addChoice("Temporal Projection", debugingOptions, debugingOptions[0]);
+
 		gd.addChoice("Detection of local max", debugingOptions, debugingOptions[0]);
+		gd.addToSameRow();
 		gd.addChoice("Detection of spots", debugingOptions, debugingOptions[0]);
+
 		gd.addChoice("Costs of spots", debugingOptions, debugingOptions[0]);
 
 		gd.showDialog();
@@ -143,6 +149,9 @@ public class ProjectCommand implements Command {
 		ImagePlus outputstack = processStack(result, this::normalisation);
 		outputstack.setTitle("Preprocessed Stack");
 		IJ.run(outputstack, "Median...", "radius=1 stack");
+
+
+
 
 		switch (choicePreprocessedStack) {
 			case "Do not display":
@@ -233,6 +242,22 @@ public class ProjectCommand implements Command {
 				addLegend(final_imp, "Orientation track map (rad)", final_imp.getTitle());
 				break;
 		}
+
+		Calibration cal = imp.getCalibration();
+
+		double pixelWidth = cal.pixelWidth;
+		double pixelHeight = cal.pixelHeight;
+		String unit = cal.getUnit();
+		// TODO what if the pixelWidth and pixelHeight is not the same ??
+
+		double frameInterval = cal.frameInterval; // seconds per frame
+		String timeUnit = cal.getTimeUnit();
+		double frameRate = (frameInterval > 0) ? 1.0 / frameInterval : 0.0;
+
+		double[] speeds = computeAvgSpeed(cleanTraj, frameInterval, pixelWidth);
+		IJ.log(Arrays.toString(speeds));
+
+		histogram(speeds, 10, "Average Speed Distribution of Microtubules", "Speed in "+unit+"/s");
 	}
 
 
@@ -639,20 +664,92 @@ public class ProjectCommand implements Command {
 		padded_imp.show();
 	}
 
-	private double computeSpeed(PartitionedGraph frames){
-		double dt = 1.0;
+	private double[] computeAvgSpeed(PartitionedGraph frames, double frameInterval, double pixelToUm){
+		double[] all_speeds = new double[frames.size()];
+		int j = 0;
+
 		for(Spots trajectory : frames){
+			double avg_speed = 0.0;
+
 			for (int i = 0; i < trajectory.size() - 1; i++) {
 				Spot a = trajectory.get(i);
 				Spot b = trajectory.get(i + 1);
 
 				double dx     = b.x - a.x;
 				double dy     = b.y - a.y;
-				double speedAtoB = Math.sqrt(dx*dx + dy*dy ) / dt; // speed from a to b
-				// TODO find frame time interval !!!
+				double speedAtoB = Math.sqrt(dx*dx + dy*dy ) / frameInterval; // speed from a to b
+
+				avg_speed += speedAtoB;
 			}
+			avg_speed = avg_speed / (trajectory.size()-1);
+
+			all_speeds[j] = avg_speed*pixelToUm;
+			++j;
+
+		}
+		return all_speeds;
+	}
+
+	private double[] computeTopNSpeed(PartitionedGraph frames, double frameInterval, double pixelToUm, int topN){
+		double[] all_speeds = new double[frames.size()];
+		int j = 0;
+
+		frames.sort(Comparator.comparingInt(traj -> traj.size()));
+
+		PartitionedGraph trajToCompute = new PartitionedGraph();
+
+		for(int i=frames.size()-1; i >= frames.size() - 1 -topN; --i){
+			trajToCompute.add(frames.get(i));
 		}
 
+
+		for(Spots trajectory : trajToCompute){
+
+			for (int i = 0; i < trajectory.size() - 1; i++) {
+				Spot a = trajectory.get(i);
+				Spot b = trajectory.get(i + 1);
+
+				double dx     = b.x - a.x;
+				double dy     = b.y - a.y;
+				double speedAtoB = Math.sqrt(dx*dx + dy*dy ) / frameInterval; // speed from a to b
+
+				// TODO stocker les vitesses à chaque fois 
+			}
+//			avg_speed = avg_speed / (trajectory.size()-1);
+//
+//			all_speeds[j] = avg_speed*pixelToUm;
+//			++j;
+
+		}
+		return all_speeds;
+	}
+
+	private void histogram(double[] toplot, int nbins, String title, String xlabel){
+
+		double min = Arrays.stream(toplot).min().orElse(0);
+		double max = Arrays.stream(toplot).max().orElse(1);
+		double binWidth = (max - min) / nbins;
+
+		// Initialize bins
+		double[] binCenters = new double[nbins];
+		double[] frequencies = new double[nbins];
+		for (int i = 0; i < nbins; i++) {
+			binCenters[i] = min + binWidth * (i + 0.5);
+		}
+
+		// Fill frequencies
+		for (double value : toplot) {
+			int bin = (int) ((value - min) / binWidth);
+			if (bin >= nbins) bin = nbins - 1;  // Handle max edge
+			frequencies[bin]++;
+		}
+
+		// Create and show plot
+		Plot plot = new Plot(title, xlabel, "Frequency");
+		plot.setLimits(min, max, 0, Arrays.stream(frequencies).max().orElse(1));
+		plot.setColor(Color.BLUE);  // Or Color.RED, new Color(r, g, b), etc.
+		plot.addPoints(binCenters, frequencies, Plot.BAR);
+		plot.show();
 	}
 
 	// Below are functions we coded, but we don't use anymore

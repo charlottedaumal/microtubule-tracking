@@ -13,6 +13,7 @@ import ij.ImagePlus;
 import ij.ImageStack;
 import ij.gui.DialogListener;
 import ij.gui.GenericDialog;
+import ij.gui.NonBlockingGenericDialog;
 import ij.gui.Plot;
 import ij.io.OpenDialog;
 import ij.measure.Calibration;
@@ -22,6 +23,7 @@ import net.imagej.ImageJ;
 import org.scijava.command.Command;
 import org.scijava.plugin.Plugin;
 
+import javax.swing.*;
 import java.awt.*;
 import java.util.*;
 import java.util.List;
@@ -34,7 +36,6 @@ public class ProjectCommand implements Command {
 	private double sigma ;  // sigma of the DoG
 	private double sigma1 ; // sigma1 of preprocessing : to remove background
 	private double sigma2 ; // sigma2 of preprocessing : what we want to keep from image
-	private int windowExp ; // size of window to increase exposure
 	private int windowDiff =1; // size of window to delete continuous tracks
 	private double threshold ; // threshold of intensity to detect spots
 	private double lambda ; // weight of distance in cost computation
@@ -53,115 +54,59 @@ public class ProjectCommand implements Command {
 		GenericDialog gd = new GenericDialog("Welcome to the MiTrack Plugin :)");
 		//TODO change message text in bold if possible ??
 
-		// === Parameter Tuning Section ===
-		gd.addMessage("=== Parameter Tuning ===");
+		// === Parameter Tuning Part I Section ===
+		gd.addMessage("=== Parameter Tuning Part I ===");
+
+		String[] displayOptions = {
+				"Do not display",
+				"Display",
+		};
 
 		// Preprocessing
 		gd.addMessage("Preprocessing");
 		gd.addNumericField("Sigma1:", 5,2);
 		gd.addToSameRow();
 		gd.addNumericField("Sigma2:", 1.25,2);
-		gd.addToSameRow();
-		gd.addNumericField("WindowExp", 3, 1);
-
-		// Segmentation
-		gd.addMessage("Segmentation");
-		gd.addNumericField("Sigma:", 1, 2);
-		gd.addToSameRow();
-		gd.addNumericField("Threshold", 5, 3);
-
-		// Tracking
-		gd.addMessage("Tracking");
-		gd.addNumericField("Costmax:", 0.5, 3);
-		gd.addToSameRow();
-		gd.addNumericField("Lambda", 0.5, 3);
-		gd.addNumericField("Gamma", 0.3, 3);
-		gd.addToSameRow();
-		gd.addNumericField("Kappa", 0.15, 3);
 		gd.addMessage("");
 
-		// === Results Options ===
-		gd.addMessage("=== Results options ===");
+		// === Slider for WindowExp ===
 
-		String[] displayOptions = {
-				"Do not display",
-				"Display",
-		};
-		String[] coloringOptions = {
-				"Random",
-				"Global average orientation",
-				"Average local orientation",
-		};
-		String[] costOptions = {
-				"Balanced with distance, direction and intensity",
-				"Balanced with distance, direction, intensity and speed",
-		};
+		int windowExpInit = 3; // initial value
+		int minExp = 1;
+		int maxExp = 3;
+		final int[] windowExp = {windowExpInit}; // use array to allow mutation in lambda
 
-		// Trajectories determination and display
-		gd.addChoice("Cost function", costOptions, costOptions[0]);
-		gd.addChoice("Coloring of Trajectories", coloringOptions, coloringOptions[0]);
-		gd.addToSameRow();
-		gd.addChoice("Color map legend", displayOptions, displayOptions[0]);
+		// Create JSlider
+		JSlider slider = new JSlider(JSlider.HORIZONTAL, minExp, maxExp, windowExpInit);
+		slider.setMajorTickSpacing(1);
+		slider.setPaintTicks(true);
+		slider.setPaintLabels(true);
 
-		// Speeds
-		gd.addCheckbox("Average speed distribution", false);
-		gd.addToSameRow();
-		gd.addCheckbox("Speed evolution from TopN longest trajectories", false);
-		gd.addToSameRow();
-		gd.addNumericField("Top:", 5, 0); // this will be enabled only if box is checked
+		// Label to show current value
+		JLabel valueLabel = new JLabel("     WindowExp:    ");
 
-		TextField topNField = (TextField) gd.getNumericFields().get(9); // get correct index
-		topNField.setEnabled(false); // initially off
-		gd.addDialogListener(new DialogListener() {
-			public boolean dialogItemChanged(GenericDialog gd, AWTEvent e) {
-				boolean isSpeedEvolutionChecked = ((Checkbox) gd.getCheckboxes().get(1)).getState();
-				topNField.setEnabled(isSpeedEvolutionChecked);
-				return true;
-			}
+		// Update value on slider move
+		slider.addChangeListener(e -> {
+			windowExp[0] = slider.getValue();
 		});
+
+		// Wrap slider and label in AWT Panel
+		Panel sliderPanel = new Panel(new BorderLayout());
+		sliderPanel.add(slider, BorderLayout.CENTER);
+		sliderPanel.add(valueLabel, BorderLayout.WEST);
+		gd.addPanel(sliderPanel);
+
 		gd.addMessage("");
-
-		// === Advanced Options ===
-		gd.addMessage("=== Advanced Options ===");
-
-		gd.addChoice("Preprocessed stack", displayOptions, displayOptions[0]);
-		gd.addToSameRow();
-		gd.addChoice("Temporal Projection", displayOptions, displayOptions[0]);
-		gd.addChoice("Detection of local max", displayOptions, displayOptions[0]);
-		gd.addToSameRow();
-		gd.addChoice("Detection of spots", displayOptions, displayOptions[0]);
-		gd.addChoice("Costs of spots", displayOptions, displayOptions[0]);
+		gd.addChoice("Preprocessed Stack", displayOptions, displayOptions[0]);
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
-		// retrieve the values from GUI
-
-		//preprocessing
+		// retrieve the values from GUI for preprocessing
 		sigma1 = gd.getNextNumber();
 		sigma2 = gd.getNextNumber();
-		windowExp = (int) gd.getNextNumber();
-		//segmentation
-		sigma = gd.getNextNumber();
-		threshold = gd.getNextNumber();
-
-		//tracking
-		costmax = gd.getNextNumber();
-		lambda = gd.getNextNumber();
-		gamma = gd.getNextNumber();
-		kappa = gd.getNextNumber();
-
-		String choiceCostFunc = gd.getNextChoice();
-		String choiceColoring = gd.getNextChoice();
-		String choiceLegend = gd.getNextChoice();
-		boolean choiceAvgSpeedDistrib = gd.getNextBoolean();
-		boolean choiceTopNSpeeds = gd.getNextBoolean();
-		int topN = (int) gd.getNextNumber();
-		String choicePreprocessedStack = gd.getNextChoice();
-		String choiceTempProj = gd.getNextChoice();
-		String choiceDetectLocalMax = gd.getNextChoice();
-		String choiceSpotsDetection = gd.getNextChoice();
-		String choiceSpotsCosts= gd.getNextChoice();
+		int chosenWindowExp = windowExp[0];
+		String choicePreprocessed = gd.getNextChoice();
 
 		// convert the image to 32 bits for downstream calculations
 		IJ.run(imp, "32-bit", "");
@@ -173,7 +118,7 @@ public class ProjectCommand implements Command {
 		outputstack.setTitle("Preprocessed Stack");
 		IJ.run(outputstack, "Median...", "radius=1 stack");
 
-		switch (choicePreprocessedStack) {
+		switch (choicePreprocessed) {
 			case "Do not display":
 				break;
 			case "Display":
@@ -184,24 +129,117 @@ public class ProjectCommand implements Command {
 		}
 
 		// temporal projection using the wrapper
-		TemporalProjector tp = new TemporalProjector(outputstack, "sum", "left", windowExp);
+		TemporalProjector tp = new TemporalProjector(outputstack, "sum", "left", chosenWindowExp);
 		ImagePlus temporalExposure = processStack(outputstack, (ImageProcessor ip) -> tp.apply(ip));
 
 		TemporalDifferencer diff = new TemporalDifferencer(temporalExposure, windowDiff);
 		ImagePlus tempDiff = processStack(temporalExposure, (ImageProcessor ip) -> diff.apply(ip));
+		tempDiff.setTitle("Temporal Projection");
+		tempDiff.setDisplayRange(0, tempDiff.getStatistics().max);
+		tempDiff.updateAndDraw();
+		tempDiff.show();
 
-		switch (choiceTempProj) {
-			case "Do not display":
-				break;
-			case "Display":
-				tempDiff.setTitle("Temporal Projection");
-				tempDiff.setDisplayRange(0, tempDiff.getStatistics().max );
-				tempDiff.updateAndDraw();
-				tempDiff.show();
-				break;
-		}
+		NonBlockingGenericDialog gd2 = new NonBlockingGenericDialog("Select further parameters!");
+
+		// === Parameter Tuning Part II Section ===
+		gd2.addMessage("=== Parameter Tuning Part II ===");
+
+		// Segmentation
+		gd2.addMessage("Segmentation");
+		gd2.addNumericField("Sigma:", 1, 2);
+		gd2.addToSameRow();
+		gd2.addNumericField("Threshold", 5, 3);
+
+		// Tracking
+		gd2.addMessage("Tracking");
+		gd2.addNumericField("Costmax:", 0.5, 3);
+		gd2.addToSameRow();
+		gd2.addNumericField("Lambda", 0.5, 3);
+		gd2.addNumericField("Gamma", 0.3, 3);
+		gd2.addToSameRow();
+		gd2.addNumericField("Kappa", 0.15, 3);
+		gd2.addMessage("");
+
+		// === Results Options ===
+		gd2.addMessage("=== Results options ===");
+
+		String[] coloringOptions = {
+				"Random",
+				"Global average orientation",
+				"Average local orientation",
+		};
+		String[] costOptions = {
+				"Balanced with distance, direction and intensity",
+				"Balanced with distance, direction, intensity and speed",
+		};
+
+		// Trajectories determination and display
+		gd2.addChoice("Cost function", costOptions, costOptions[0]);
+		gd2.addChoice("Coloring of Trajectories", coloringOptions, coloringOptions[0]);
+		gd2.addToSameRow();
+		gd2.addChoice("Color map legend", displayOptions, displayOptions[0]);
+
+		// Speeds
+		gd2.addCheckbox("Average speed distribution", false);
+		gd2.addToSameRow();
+		gd2.addCheckbox("Speed evolution from TopN longest trajectories", false);
+		gd2.addToSameRow();
+		gd2.addNumericField("Top:", 5, 0); // this will be enabled only if box is checked
+
+		TextField topNField = (TextField) gd2.getNumericFields().get(6); // get correct index
+		topNField.setEnabled(false); // initially off
+		gd2.addDialogListener(new DialogListener() {
+			public boolean dialogItemChanged(GenericDialog gd2, AWTEvent e) {
+				boolean isSpeedEvolutionChecked = ((Checkbox) gd2.getCheckboxes().get(1)).getState();
+				topNField.setEnabled(isSpeedEvolutionChecked);
+				return true;
+			}
+		});
+		gd2.addCheckbox("Average orientation distribution", false);
+		gd2.addMessage("");
+
+		// === Advanced Options ===
+		gd2.addMessage("=== Advanced Options ===");
+		gd2.addCheckbox("Display all", false);
+		gd2.addChoice("Detection of local max", displayOptions, displayOptions[0]);
+		gd2.addToSameRow();
+		gd2.addChoice("Detection of spots", displayOptions, displayOptions[0]);
+		gd2.addChoice("Costs of spots", displayOptions, displayOptions[0]);
+
+		gd2.showDialog();
+		if (gd2.wasCanceled()) return;
+
+		// retrieve the values from GUI
+		//segmentation
+		sigma = gd2.getNextNumber();
+		threshold = gd2.getNextNumber();
+
+		//tracking
+		costmax = gd2.getNextNumber();
+		lambda = gd2.getNextNumber();
+		gamma = gd2.getNextNumber();
+		kappa = gd2.getNextNumber();
+
+		String choiceCostFunc = gd2.getNextChoice();
+		String choiceColoring = gd2.getNextChoice();
+		String choiceLegend = gd2.getNextChoice();
+		boolean choiceAvgSpeedDistrib = gd2.getNextBoolean();
+		boolean choiceTopNSpeeds = gd2.getNextBoolean();
+		boolean choiceAvgOrientDistrib = gd2.getNextBoolean();
+		int topN = (int) gd2.getNextNumber();
+		boolean choiceDisplayAll = gd2.getNextBoolean();
+		String choiceDetectLocalMax = gd2.getNextChoice();
+		String choiceSpotsDetection = gd2.getNextChoice();
+		String choiceSpotsCosts= gd2.getNextChoice();
 
 		boolean userChoiceLocalMax = false;
+		boolean userChoiceCosts = false;
+
+		if(choiceDisplayAll){
+			userChoiceLocalMax = true;
+			userChoiceCosts = true;
+		}
+
 		switch (choiceDetectLocalMax) {
 			case "Do not display":
 				break;
@@ -212,6 +250,10 @@ public class ProjectCommand implements Command {
 
 		PartitionedGraph framesDiff = detect(tempDiff,sigma,threshold, userChoiceLocalMax);
 
+		if(choiceDisplayAll){
+			framesDiff.drawSpots(tempDiff);
+		}
+
 		switch (choiceSpotsDetection) {
 			case "Do not display":
 				break;
@@ -221,7 +263,6 @@ public class ProjectCommand implements Command {
 		}
 
 		int dimension = 20;
-		boolean userChoiceCosts = false;
 		switch (choiceSpotsCosts) {
 			case "Do not display":
 				break;
@@ -271,11 +312,16 @@ public class ProjectCommand implements Command {
 
 		 if(choiceAvgSpeedDistrib){
 			 double[] speeds = computeAvgSpeed(cleanTraj, frameInterval, pixelWidth);
-			 histogram(speeds, 10, "Average Speed Distribution of Microtubules", "Speed in "+unit+"/s");
+			 histogram(speeds, 10, "Average Speed Distribution of Microtubules", "Speed in "+unit+"/s", false);
 		 }
 		if(choiceTopNSpeeds){
 			TreeMap<Integer, TreeMap<Integer, Double>> topNSpeeds = computeTopNSpeed(cleanTraj, frameInterval, topN);
 			pointPlot(topNSpeeds, topN, "Speed in "+unit+"/s");
+		}
+
+		if(choiceAvgOrientDistrib){
+			double[] orientations = computeAvgOrientation(cleanTraj);
+			histogram(orientations, 10, "Average Orientation Distribution of Microtubules", "Orientation in radians", true);
 		}
 	}
 
@@ -683,11 +729,20 @@ public class ProjectCommand implements Command {
 		padded_imp.show();
 	}
 
+	/**
+	 * TODO
+	 * @param frames
+	 * @param frameInterval
+	 * @param pixelToUm
+	 * @return
+	 */
 	private double[] computeAvgSpeed(PartitionedGraph frames, double frameInterval, double pixelToUm){
 		double[] all_speeds = new double[frames.size()];
 		int j = 0;
 
 		for(Spots trajectory : frames){
+			if (trajectory.size() < 2) continue; // to make sure no division by zero happens
+
 			double avg_speed = 0.0;
 
 			for (int i = 0; i < trajectory.size() - 1; i++) {
@@ -701,16 +756,21 @@ public class ProjectCommand implements Command {
 				avg_speed += speedAtoB;
 			}
 			avg_speed = avg_speed / (trajectory.size()-1);
-
 			all_speeds[j] = avg_speed*pixelToUm;
 			++j;
-
 		}
 		return all_speeds;
 	}
 
+
+	/**
+	 * TODO
+	 * @param frames
+	 * @param frameInterval
+	 * @param topN
+	 * @return
+	 */
 	private TreeMap<Integer, TreeMap<Integer, Double>> computeTopNSpeed(PartitionedGraph frames, double frameInterval, int topN){
-		//TreeMap<Integer, Double> speeds = new TreeMap<>();
 		TreeMap<Integer, TreeMap<Integer, Double>> speedMap = new TreeMap<>();
 
 		frames.sort(Comparator.comparingInt(traj -> traj.size()));
@@ -741,7 +801,42 @@ public class ProjectCommand implements Command {
 		return speedMap;
 	}
 
-	private void histogram(double[] toplot, int nbins, String title, String xlabel){
+
+	/**
+	 * TODO
+	 * @param frames
+	 * @return
+	 */
+	private double[] computeAvgOrientation(PartitionedGraph frames) {
+		double[] all_orientations = new double[frames.size()];
+		int j = 0;
+
+		for (Spots trajectory : frames) {
+			if (trajectory.size() < 2) continue; // to make sure no division by zero happens
+
+			double sumOrientation = 0;
+
+			for (int i = 0; i < trajectory.size() - 1; i++) {
+				Spot a = trajectory.get(i);
+				Spot b = trajectory.get(i + 1);
+				sumOrientation += getOrientation(a, b);
+			}
+			all_orientations[j] = sumOrientation / (trajectory.size() - 1);
+			++j;
+		}
+		return all_orientations;
+	}
+
+
+	/**
+	 * TODO
+	 * @param toplot
+	 * @param nbins
+	 * @param title
+	 * @param xlabel
+	 * @param setXForAngle
+	 */
+	private void histogram(double[] toplot, int nbins, String title, String xlabel, boolean setXForAngle){
 		double min = Arrays.stream(toplot).min().orElse(0);
 		double max = Arrays.stream(toplot).max().orElse(1);
 		double binWidth = (max - min) / nbins;
@@ -762,13 +857,24 @@ public class ProjectCommand implements Command {
 
 		// Create and show plot
 		Plot plot = new Plot(title, xlabel, "Frequency");
-		plot.setLimits(min, max, 0, Arrays.stream(frequencies).max().orElse(1));
-		plot.setColor(Color.BLUE);  // Or Color.RED, new Color(r, g, b), etc.
+		if(setXForAngle){
+			plot.setLimits(-Math.PI, Math.PI, 0, Arrays.stream(frequencies).max().orElse(1));
+			plot.setColor(Color.RED);
+		}else{
+			plot.setLimits(min, max, 0, Arrays.stream(frequencies).max().orElse(1));
+			plot.setColor(Color.BLUE);
+		}
 		plot.addPoints(binCenters, frequencies, Plot.BAR);
 		plot.show();
 	}
 
 
+	/**
+	 * TODO
+	 * @param toplot
+	 * @param topN
+	 * @param ylabel
+	 */
 	private void pointPlot(TreeMap<Integer, TreeMap<Integer, Double>> toplot, int topN, String ylabel){
 		Plot plot = new Plot("Speeds from the Top " + topN + " Longest Trajectories", "Frames", ylabel);
 

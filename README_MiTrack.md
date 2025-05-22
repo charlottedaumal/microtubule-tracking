@@ -60,12 +60,12 @@ tuned specifically to your image to improve visualisation in the following ways 
 - `sigma1` : parameter of the gaussian blur to remove the background structure.
 - `sigma2` : parameter of the gaussian blur to keep the structures of interest. 
 - `number of frames` : parameter to select the number of frames that will be added to increase
-    the contrast. We typically recommend values between 1 and 10 to avoid over-saturation of pixels.
+    the contrast. We typically recommend values between 1 and 5 to avoid over-saturation of pixels.
 
 > 💡 **TIP:** To increase contrast between microtubules signal and background,
   temporal addition of frames is **strongly recommended**. Select the temporal
   exposure parameter to select how many frames are summed to increase the contrast.
-    
+
 
 #### Segmentation parameters:
 Our segmentation approach is based on local maxima detection using a DoG filter and depends on the 
@@ -98,8 +98,43 @@ aberrant trajectories, reduce the costmax ; too few trajectories appear, increas
 
 ## 🛸 Expected outputs 
 
-# insert images & explain speed and orientation graphs 
+Here is a short description and examples of the kind of results we can obtain using MiTrack.
 
+### Preprocessing steps 
+
+The original image we used was very noisy, with a bright background that impaired clear 
+visualisation of the microtubules' dynamics.
+
+<img src="icons/original.png" height=300px alt="image" >
+
+
+After the first preprocessing, we remove the background structure in the image : 
+
+<img src="icons/preprocessed.png" height=300px alt="image" >
+
+Here we can observe the extending microtubules easier, however their intensity values remain
+small so to increase them, we go through the next steps that combine a temporal sum and difference 
+projection to increase intensity and render the comets closer to dots.
+
+<img src="icons/temporalProjection.png" height=300px alt="image" >
+
+### Segmentation 
+
+Now that we have preprocessed our image, we can go to the segmentation ! 
+
+Segmentation detects individual objects and the results can be shown as such : 
+
+<img src="icons/spots.png" height=300px alt="image" >
+
+If satisfied with the segmentation, we can proceed with the final step, the tracking of the objects trajectories. 
+
+### Final outputs 
+
+Here we have the final trajectories, that can be colored with or without the color orientation map (as seen below).
+
+<img src="icons/trajectories.png" height=250px alt="image" > <img src="icons/trajectoriesColored.png" height=250px alt="image" >
+
+### Speed and orientation plots 
 
 
 

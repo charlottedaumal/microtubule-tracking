@@ -11,6 +11,7 @@ import ch.epfl.bio410.utils.TemporalProjector;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.ImageStack;
+import ij.gui.DialogListener;
 import ij.gui.GenericDialog;
 import ij.gui.Plot;
 import ij.io.OpenDialog;
@@ -26,7 +27,7 @@ import java.util.*;
 import java.util.List;
 
 
-@Plugin(type = Command.class, menuPath = "Plugins>BII>Microtubule Gang")
+@Plugin(type = Command.class, menuPath = "Plugins>BII>MiTrack")
 public class ProjectCommand implements Command {
 
 	private double costmax = 0.5;
@@ -49,25 +50,29 @@ public class ProjectCommand implements Command {
 		
 		ImagePlus imp = IJ.openImage(filePath+fileName);
 
-		GenericDialog gd = new GenericDialog("Welcome to the Microtubule Gang :)");
+		GenericDialog gd = new GenericDialog("Welcome to the MiTrack Plugin :)");
+		//TODO change message text in bold if possible ??
 
-		// user input parameters
+		// === Parameter Tuning Section ===
+		gd.addMessage("=== Parameter Tuning ===");
 
-		gd.addMessage(" Preprocessing ");
+		// Preprocessing
+		gd.addMessage("Preprocessing");
 		gd.addNumericField("Sigma1:", 5,2);
 		gd.addToSameRow();
 		gd.addNumericField("Sigma2:", 1.25,2);
 		gd.addToSameRow();
 		gd.addNumericField("WindowExp", 3, 1);
 
+		// Segmentation
 		gd.addMessage("Segmentation");
-
 		gd.addNumericField("Sigma:", 1, 2);
 		gd.addToSameRow();
 		gd.addNumericField("Threshold", 5, 3);
 		gd.addToSameRow();
 		gd.addNumericField("WindowDiff", 1, 1);
 
+		// Tracking
 		gd.addMessage("Tracking");
 		gd.addNumericField("Costmax:", 0.5, 3);
 		gd.addToSameRow();
@@ -77,40 +82,57 @@ public class ProjectCommand implements Command {
 		gd.addNumericField("Kappa", 0.15, 3);
 		gd.addMessage("");
 
-		gd.addMessage("Display options");
-		//TODO change message text in bold if possible ??
+		// === Results Options ===
+		gd.addMessage("=== Results options ===");
 
-		gd.addMessage("Coloring of Trajectories");
+		String[] displayOptions = {
+				"Do not display",
+				"Display",
+		};
 		String[] coloringOptions = {
 				"Random",
 				"Global average orientation",
 				"Average local orientation",
 		};
-		gd.addChoice("Method", coloringOptions, coloringOptions[0]);
-
-		gd.addMessage("Results Options");
-		String[] resultsOptions = {
-				"Do not display",
-				"Display",
+		String[] costOptions = {
+				"Balanced with distance, direction and intensity",
+				"Balanced with distance, direction, intensity and speed",
 		};
-		gd.addChoice("Color map legend", resultsOptions, resultsOptions[0]);
-		gd.addToSameRow();
-		gd.addChoice("Distribution of speeds", resultsOptions, resultsOptions[0]);
 
-		gd.addMessage("Advanced Options");
-		String[] debugingOptions = {
-				"Do not display",
-				"Display",
-		};
-		gd.addChoice("Preprocessed stack", debugingOptions, debugingOptions[0]);
+		// Trajectories determination and display
+		gd.addChoice("Cost function", costOptions, costOptions[0]);
+		gd.addChoice("Coloring of Trajectories", coloringOptions, coloringOptions[0]);
 		gd.addToSameRow();
-		gd.addChoice("Temporal Projection", debugingOptions, debugingOptions[0]);
+		gd.addChoice("Color map legend", displayOptions, displayOptions[0]);
 
-		gd.addChoice("Detection of local max", debugingOptions, debugingOptions[0]);
+		// Speeds
+		gd.addCheckbox("Average speed distribution", false);
 		gd.addToSameRow();
-		gd.addChoice("Detection of spots", debugingOptions, debugingOptions[0]);
+		gd.addCheckbox("Speed evolution from TopN longest trajectories", false);
+		gd.addToSameRow();
+		gd.addNumericField("Top:", 5, 0); // this will be enabled only if box is checked
 
-		gd.addChoice("Costs of spots", debugingOptions, debugingOptions[0]);
+		TextField topNField = (TextField) gd.getNumericFields().get(10); // get correct index
+		topNField.setEnabled(false); // initially off
+		gd.addDialogListener(new DialogListener() {
+			public boolean dialogItemChanged(GenericDialog gd, AWTEvent e) {
+				boolean isSpeedEvolutionChecked = ((Checkbox) gd.getCheckboxes().get(1)).getState();
+				topNField.setEnabled(isSpeedEvolutionChecked);
+				return true;
+			}
+		});
+		gd.addMessage("");
+
+		// === Advanced Options ===
+		gd.addMessage("=== Advanced Options ===");
+
+		gd.addChoice("Preprocessed stack", displayOptions, displayOptions[0]);
+		gd.addToSameRow();
+		gd.addChoice("Temporal Projection", displayOptions, displayOptions[0]);
+		gd.addChoice("Detection of local max", displayOptions, displayOptions[0]);
+		gd.addToSameRow();
+		gd.addChoice("Detection of spots", displayOptions, displayOptions[0]);
+		gd.addChoice("Costs of spots", displayOptions, displayOptions[0]);
 
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
@@ -131,9 +153,12 @@ public class ProjectCommand implements Command {
 		gamma = gd.getNextNumber();
 		kappa = gd.getNextNumber();
 
+		String choiceCostFunc = gd.getNextChoice();
 		String choiceColoring = gd.getNextChoice();
 		String choiceLegend = gd.getNextChoice();
-		String choiceDistribSpeed = gd.getNextChoice();
+		boolean choiceAvgSpeedDistrib = gd.getNextBoolean();
+		boolean choiceTopNSpeeds = gd.getNextBoolean();
+		int topN = (int) gd.getNextNumber();
 		String choicePreprocessedStack = gd.getNextChoice();
 		String choiceTempProj = gd.getNextChoice();
 		String choiceDetectLocalMax = gd.getNextChoice();
@@ -149,9 +174,6 @@ public class ProjectCommand implements Command {
 		ImagePlus outputstack = processStack(result, this::normalisation);
 		outputstack.setTitle("Preprocessed Stack");
 		IJ.run(outputstack, "Median...", "radius=1 stack");
-
-
-
 
 		switch (choicePreprocessedStack) {
 			case "Do not display":
@@ -244,20 +266,22 @@ public class ProjectCommand implements Command {
 		}
 
 		Calibration cal = imp.getCalibration();
-
 		double pixelWidth = cal.pixelWidth;
 		double pixelHeight = cal.pixelHeight;
 		String unit = cal.getUnit();
 		// TODO what if the pixelWidth and pixelHeight is not the same ??
-
 		double frameInterval = cal.frameInterval; // seconds per frame
 		String timeUnit = cal.getTimeUnit();
 		double frameRate = (frameInterval > 0) ? 1.0 / frameInterval : 0.0;
 
-		double[] speeds = computeAvgSpeed(cleanTraj, frameInterval, pixelWidth);
-		IJ.log(Arrays.toString(speeds));
-
-		histogram(speeds, 10, "Average Speed Distribution of Microtubules", "Speed in "+unit+"/s");
+		 if(choiceAvgSpeedDistrib){
+			 double[] speeds = computeAvgSpeed(cleanTraj, frameInterval, pixelWidth);
+			 histogram(speeds, 10, "Average Speed Distribution of Microtubules", "Speed in "+unit+"/s");
+		 }
+		if(choiceTopNSpeeds){
+			TreeMap<Integer, TreeMap<Integer, Double>> topNSpeeds = computeTopNSpeed(cleanTraj, frameInterval, topN);
+			pointPlot(topNSpeeds, topN, "Speed in "+unit+"/s");
+		}
 	}
 
 
@@ -690,20 +714,21 @@ public class ProjectCommand implements Command {
 		return all_speeds;
 	}
 
-	private double[] computeTopNSpeed(PartitionedGraph frames, double frameInterval, double pixelToUm, int topN){
-		double[] all_speeds = new double[frames.size()];
-		int j = 0;
+	private TreeMap<Integer, TreeMap<Integer, Double>> computeTopNSpeed(PartitionedGraph frames, double frameInterval, int topN){
+		//TreeMap<Integer, Double> speeds = new TreeMap<>();
+		TreeMap<Integer, TreeMap<Integer, Double>> speedMap = new TreeMap<>();
 
 		frames.sort(Comparator.comparingInt(traj -> traj.size()));
 
 		PartitionedGraph trajToCompute = new PartitionedGraph();
 
-		for(int i=frames.size()-1; i >= frames.size() - 1 -topN; --i){
+		for(int i=frames.size()-1; i > frames.size() - 1 -topN; --i){
 			trajToCompute.add(frames.get(i));
 		}
 
-
+		int trajId = 0;
 		for(Spots trajectory : trajToCompute){
+			TreeMap<Integer, Double> trajSpeeds = new TreeMap<>();
 
 			for (int i = 0; i < trajectory.size() - 1; i++) {
 				Spot a = trajectory.get(i);
@@ -713,19 +738,15 @@ public class ProjectCommand implements Command {
 				double dy     = b.y - a.y;
 				double speedAtoB = Math.sqrt(dx*dx + dy*dy ) / frameInterval; // speed from a to b
 
-				// TODO stocker les vitesses à chaque fois 
+				trajSpeeds.put(b.t, speedAtoB);
 			}
-//			avg_speed = avg_speed / (trajectory.size()-1);
-//
-//			all_speeds[j] = avg_speed*pixelToUm;
-//			++j;
-
+			++trajId;
+			speedMap.put(trajId, trajSpeeds);
 		}
-		return all_speeds;
+		return speedMap;
 	}
 
 	private void histogram(double[] toplot, int nbins, String title, String xlabel){
-
 		double min = Arrays.stream(toplot).min().orElse(0);
 		double max = Arrays.stream(toplot).max().orElse(1);
 		double binWidth = (max - min) / nbins;
@@ -751,6 +772,23 @@ public class ProjectCommand implements Command {
 		plot.addPoints(binCenters, frequencies, Plot.BAR);
 		plot.show();
 	}
+
+
+	private void pointPlot(TreeMap<Integer, TreeMap<Integer, Double>> toplot, int topN, String ylabel){
+		Plot plot = new Plot("Speeds from the Top " + topN + " Longest Trajectories", "Frames", ylabel);
+
+		for (Map.Entry<Integer, TreeMap<Integer, Double>> entry : toplot.entrySet()) {
+			TreeMap<Integer, Double> trajSpeeds = entry.getValue();
+
+			double[] timePoints = trajSpeeds.keySet().stream().mapToDouble(t -> t).toArray();
+			double[] speeds = trajSpeeds.values().stream().mapToDouble(s -> s).toArray();
+
+			plot.setColor(Color.getHSBColor((float) entry.getKey() / toplot.size(), 1f, 1f)); // optional: color per trajectory
+			plot.addPoints(timePoints, speeds, Plot.LINE); // Plot.LINE connects points
+		}
+		plot.show();
+	}
+
 
 	// Below are functions we coded, but we don't use anymore
 	/* TODO: decide whether we should keep them or not (for me we can delete them now, they are still accessible in the

@@ -31,11 +31,11 @@ import java.util.List;
 public class ProjectCommand implements Command {
 
 	private double costmax = 0.5;
-	private double sigma ;  // sigma of the DoG TODO : adapt it
+	private double sigma ;  // sigma of the DoG
 	private double sigma1 ; // sigma1 of preprocessing : to remove background
 	private double sigma2 ; // sigma2 of preprocessing : what we want to keep from image
 	private int windowExp ; // size of window to increase exposure
-	private int windowDiff ; // size of window to delete continuous tracks
+	private int windowDiff =1; // size of window to delete continuous tracks
 	private double threshold ; // threshold of intensity to detect spots
 	private double lambda ; // weight of distance in cost computation
 	private double gamma ; // weight of direction in cost computation
@@ -69,8 +69,6 @@ public class ProjectCommand implements Command {
 		gd.addNumericField("Sigma:", 1, 2);
 		gd.addToSameRow();
 		gd.addNumericField("Threshold", 5, 3);
-		gd.addToSameRow();
-		gd.addNumericField("WindowDiff", 1, 1);
 
 		// Tracking
 		gd.addMessage("Tracking");
@@ -112,7 +110,7 @@ public class ProjectCommand implements Command {
 		gd.addToSameRow();
 		gd.addNumericField("Top:", 5, 0); // this will be enabled only if box is checked
 
-		TextField topNField = (TextField) gd.getNumericFields().get(10); // get correct index
+		TextField topNField = (TextField) gd.getNumericFields().get(9); // get correct index
 		topNField.setEnabled(false); // initially off
 		gd.addDialogListener(new DialogListener() {
 			public boolean dialogItemChanged(GenericDialog gd, AWTEvent e) {
@@ -146,7 +144,7 @@ public class ProjectCommand implements Command {
 		//segmentation
 		sigma = gd.getNextNumber();
 		threshold = gd.getNextNumber();
-		windowDiff = (int) gd.getNextNumber();
+
 		//tracking
 		costmax = gd.getNextNumber();
 		lambda = gd.getNextNumber();
@@ -179,8 +177,7 @@ public class ProjectCommand implements Command {
 			case "Do not display":
 				break;
 			case "Display":
-				double max_pixel_value_preprocess = outputstack.getStatistics().max ;
-				outputstack.setDisplayRange(0, max_pixel_value_preprocess);
+				outputstack.setDisplayRange(0, outputstack.getStatistics().max);
 				outputstack.updateAndDraw();
 				outputstack.show();
 				break;
@@ -260,7 +257,7 @@ public class ProjectCommand implements Command {
 				break;
 			case "Display":
 				cleanTraj.drawLines(final_imp);
-				final_imp.hide(); // TODO: à vérifier avec Gabi si il n'y a pas de meilleure solution
+				final_imp.hide();
 				addLegend(final_imp, "Orientation track map (rad)", final_imp.getTitle());
 				break;
 		}
@@ -271,8 +268,6 @@ public class ProjectCommand implements Command {
 		String unit = cal.getUnit();
 		// TODO what if the pixelWidth and pixelHeight is not the same ??
 		double frameInterval = cal.frameInterval; // seconds per frame
-		String timeUnit = cal.getTimeUnit();
-		double frameRate = (frameInterval > 0) ? 1.0 / frameInterval : 0.0;
 
 		 if(choiceAvgSpeedDistrib){
 			 double[] speeds = computeAvgSpeed(cleanTraj, frameInterval, pixelWidth);

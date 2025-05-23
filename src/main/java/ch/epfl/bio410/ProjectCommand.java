@@ -156,17 +156,23 @@ public class ProjectCommand implements Command {
 		threshold = gd2.getNextNumber();
 
 		// Add preview checkbox for the threshold
-		gd2.addPreviewCheckbox(null);
+		gd2.addCheckbox("Preview detection", false);  // Add your own preview checkbox
+
 		gd2.addDialogListener((dialog, e) -> {
 			if (gd2.wasCanceled()) return false;
-			if (gd2.getPreviewCheckbox().getState()) {
-				// We use 2 frames after the inital window size to have a correct print
-				int frame = chosenWindowExp+2;
+
+			// Use getNextNumber/getNextBoolean carefully or refer to indices
+			// OR directly access checkboxes:
+			Checkbox previewCheckbox = (Checkbox) gd2.getCheckboxes().get(0);  // adjust index if needed
+			if (previewCheckbox.getState()) {
+				int frame = chosenWindowExp + 2;
 				ImagePlus singleFrame = new ImagePlus("Frame " + (frame),
 						tempDiff.getStack().getProcessor(frame).duplicate());
-				singleFrame.setDimensions(1, 1, 1);  // Set to a single slice
-				PartitionedGraph preview = detect(singleFrame,sigma,threshold, false);
+				singleFrame.setDimensions(1, 1, 1);  // Single-slice image
+
+				PartitionedGraph preview = detect(singleFrame, sigma, threshold, false);
 				preview.drawSpots(singleFrame);
+				singleFrame.show();  // optional: display it
 			}
 			return true;
 		});
@@ -214,7 +220,7 @@ public class ProjectCommand implements Command {
 		topNField.setEnabled(false); // initially off
 		gd2.addDialogListener(new DialogListener() {
 			public boolean dialogItemChanged(GenericDialog gd2, AWTEvent e) {
-				boolean isSpeedEvolutionChecked = ((Checkbox) gd2.getCheckboxes().get(1)).getState();
+				boolean isSpeedEvolutionChecked = ((Checkbox) gd2.getCheckboxes().get(3)).getState();
 				topNField.setEnabled(isSpeedEvolutionChecked);
 				return true;
 			}
@@ -237,6 +243,7 @@ public class ProjectCommand implements Command {
 		gd2.showDialog();
 		if (gd2.wasCanceled()) return;
 
+		boolean preview = gd2.getNextBoolean();
 
 
 		//tracking
@@ -248,7 +255,6 @@ public class ProjectCommand implements Command {
 		String choiceCostFunc = gd2.getNextChoice();
 		String choiceColoring = gd2.getNextChoice();
 		String choiceLegend = gd2.getNextChoice();
-		boolean preview = gd2.getNextBoolean();
 		boolean choiceAvgSpeedDistrib = gd2.getNextBoolean();
 		boolean choiceTopNSpeeds = gd2.getNextBoolean();
 		boolean choiceAvgOrientDistrib = gd2.getNextBoolean();

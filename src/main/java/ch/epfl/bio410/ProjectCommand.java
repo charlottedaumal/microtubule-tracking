@@ -161,14 +161,17 @@ public class ProjectCommand implements Command {
 			// OR directly access checkboxes:
 			Checkbox previewCheckbox = (Checkbox) gd2.getCheckboxes().get(0);  // adjust index if needed
 			if (previewCheckbox.getState()) {
+				double previewSigma = Double.parseDouble(((TextField) gd2.getNumericFields().get(0)).getText());
+				double previewThreshold = Double.parseDouble(((TextField) gd2.getNumericFields().get(1)).getText());
 				int frame = chosenWindowExp + 2;
 				ImagePlus singleFrame = new ImagePlus("Frame " + (frame),
 						tempDiff.getStack().getProcessor(frame).duplicate());
 				singleFrame.setDimensions(1, 1, 1);  // Single-slice image
 
-				PartitionedGraph preview = detect(singleFrame, sigma, threshold, false);
+				PartitionedGraph preview = detect(singleFrame, previewSigma, previewThreshold, false);
 				preview.drawSpots(singleFrame);
-				singleFrame.show();  // optional: display it
+				previewCheckbox.setState(false);
+
 			}
 			return true;
 		});

@@ -271,9 +271,18 @@ public class ProjectCommand implements Command {
 				break;
 		}
 
-		AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
-		PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension, userChoiceCosts);
-		PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
+		switch (choiceCostFunc) {
+			case "Balanced with distance, direction and intensity":
+				AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
+				PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension, userChoiceCosts);
+				PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
+				break;
+			case "Balanced with distance, direction, intensity and speed":
+				AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
+				PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension, userChoiceCosts);
+				PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
+				break;
+		}
 
 		ImagePlus final_imp = tempDiff.duplicate();
 		switch (choiceColoring) {
@@ -298,8 +307,9 @@ public class ProjectCommand implements Command {
 				break;
 			case "Display":
 				cleanTraj.drawLines(final_imp);
-				final_imp.hide();
-				addLegend(final_imp, "Orientation track map (rad)", final_imp.getTitle());
+				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
+				final_imp.updateAndDraw();
+				addLegend("Orientation track map (rad)");
 				break;
 		}
 
@@ -503,7 +513,7 @@ public class ProjectCommand implements Command {
 	 * @param dimension the integer specifying a dimensional constraint for cost evaluation
 	 * @return Partitioned Graph where each partition corresponds to a tracked trajectory
 	 */
-	private PartitionedGraph directionalTracking(PartitionedGraph frames, AbstractDirCost cost, int dimension, boolean user_choice) {
+	private PartitionedGraph directionalTracking(PartitionedGraph frames, AbstractDirCost cost, int dimension, boolean user_choice, boolean speed) {
 		PartitionedGraph trajectories = new PartitionedGraph();
 		for (Spots frame : frames) {
 			for (Spot spot : frame) {
@@ -667,66 +677,42 @@ public class ProjectCommand implements Command {
 	 * content into the new frame, fills the padded region with white, and then draws a color gradient representing
 	 * angles from -π to π using a color mapping function.
 	 *
-	 * @param imp input ImagePlus displaying the colored trajectories
 	 * @param legend_title title for the color map legend
 	 */
-	private void addLegend(ImagePlus imp, String legend_title, String imp_title) {
-		int width = imp.getWidth();
-		int height = imp.getHeight();
-		int legendWidth = 500 ;
-		int legendHeight = 50 ;
-		int padding = 100;
-		int newHeight = height + padding;
+	private void addLegend(String legend_title) {
+		int legendWidth = 500;
+		int legendHeight = 50;
+		int labelHeight = 60; // extra height for labels and title
+		int totalHeight = legendHeight + labelHeight;
 
-		imp.setDisplayRange(0, imp.getStatistics().max );
-		imp.updateAndDraw();
+		ImageProcessor legendIp = new ColorProcessor(legendWidth, totalHeight);
+		legendIp.setColor(Color.WHITE); // Fill background with white
+		legendIp.fill();
 
-		ImageStack newStack = new ImageStack(width, newHeight);
-		for (int t = 1; t <= imp.getNFrames(); t++) {
-			imp.setPositionWithoutUpdate(1, 1, t);
-			FloatProcessor originalFp = (FloatProcessor) imp.getProcessor();
-			FloatProcessor paddedFp = new FloatProcessor(width, newHeight);
-			// Copy image
-			paddedFp.insert(originalFp, 0, 0);
-			// Fill padding with white
-			for (int y = height; y < newHeight; y++) {
-				for (int x = 0; x < width; x++) {
-					paddedFp.setf(x, y, 255);  // white
-				}
-			}
-			newStack.addSlice(paddedFp);
-		}
-
-		ImagePlus padded_imp = new ImagePlus("With Legend", newStack);
-		padded_imp.setDimensions(1, 1, imp.getNFrames());
-		padded_imp.setCalibration(imp.getCalibration());
-		padded_imp.setOverlay(imp.getOverlay());
-		padded_imp.setDisplayRange(imp.getDisplayRangeMin(), imp.getDisplayRangeMax());
-		padded_imp.setPosition(1, 1, imp.getT());
-		ImageProcessor legendIp = padded_imp.getProcessor().convertToRGB();
-
-		int barX = (width - legendWidth) / 2;
-		int barY = height;
+		// Draw the color bar
 		for (int i = 0; i < legendWidth; i++) {
 			double angle = (2 * Math.PI) * i / (double) (legendWidth - 1);
 			Color c = mapColor(angle);
 			for (int j = 0; j < legendHeight; j++) {
 				legendIp.setColor(c);
-				legendIp.drawPixel(barX + i, barY + j);
+				legendIp.drawPixel(i, j);
 			}
 		}
 
+		// Draw labels and title
 		legendIp.setColor(Color.BLACK);
 		legendIp.setFont(new Font("SansSerif", Font.PLAIN, 14));
-		legendIp.drawString("-π", barX - 10, barY + legendHeight + 20);
-		legendIp.drawString("π", barX + legendWidth - 10, barY + legendHeight + 20);
-		legendIp.setColor(Color.BLACK);
-		legendIp.setFont(new Font("SansSerif", Font.PLAIN, 18));
-		legendIp.drawString(legend_title, width / 2 - 110, barY + legendHeight + 40);
+		legendIp.drawString("-π", 0, legendHeight + 20);
+		legendIp.drawString("π", legendWidth - 20, legendHeight + 20);
 
-		padded_imp.setProcessor("With Legend", legendIp);
-		padded_imp.setTitle(imp_title);
-		padded_imp.show();
+		// Title centered
+		legendIp.setFont(new Font("SansSerif", Font.PLAIN, 18));
+		int titleX = (legendWidth - legendIp.getStringWidth(legend_title)) / 2;
+		legendIp.drawString(legend_title, titleX, legendHeight + 45);
+
+		// Show in new window
+		ImagePlus legendImp = new ImagePlus("Legend", legendIp);
+		legendImp.show();
 	}
 
 	/**

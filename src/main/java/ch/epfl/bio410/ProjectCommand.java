@@ -293,18 +293,18 @@ public class ProjectCommand implements Command {
 				break;
 		}
 
+		AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
+		PartitionedGraph trajectoriesDiff = new PartitionedGraph();
 		switch (choiceCostFunc) {
 			case "Balanced with distance, direction and intensity":
-				AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
-				PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension, userChoiceCosts);
-				PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
+				trajectoriesDiff = directionalTracking(framesDiff, cost, dimension, userChoiceCosts, false);
 				break;
 			case "Balanced with distance, direction, intensity and speed":
-				AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
-				PartitionedGraph trajectoriesDiff = directionalTracking(framesDiff, cost, dimension, userChoiceCosts);
-				PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
+				trajectoriesDiff = directionalTracking(framesDiff, cost, dimension, userChoiceCosts, true);
 				break;
 		}
+
+		PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
 
 		ImagePlus final_imp = tempDiff.duplicate();
 		switch (choiceColoring) {
@@ -548,10 +548,18 @@ public class ProjectCommand implements Command {
 						Spot next_spot = null; // we first initialize the next_spot to be null
 						for(Spot next : frames.get(t+1)) { // iterate over all spots of the next frame
 							if (cost.validate(next, spot, frames, dimension) == true) { // if the cost is lesser than the costmax
-								if(cost.evaluate(next, spot, frames, dimension) < trajectory_cost) {
-									// if the new cost is less than the previous one we save the spot
-									trajectory_cost = cost.evaluate(next, spot, frames, dimension);
-									next_spot = next;
+								if(speed){
+									if(cost.evaluate_withSpeed(next, spot, frames, dimension) < trajectory_cost) {
+										// if the new cost is less than the previous one we save the spot
+										trajectory_cost = cost.evaluate(next, spot, frames, dimension);
+										next_spot = next;
+									}
+								}else{
+									if(cost.evaluate(next, spot, frames, dimension) < trajectory_cost) {
+										// if the new cost is less than the previous one we save the spot
+										trajectory_cost = cost.evaluate(next, spot, frames, dimension);
+										next_spot = next;
+									}
 								}
 							}
 						}

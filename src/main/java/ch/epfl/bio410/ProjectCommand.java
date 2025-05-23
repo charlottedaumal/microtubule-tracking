@@ -348,7 +348,7 @@ public class ProjectCommand implements Command {
 		// TODO what if the pixelWidth and pixelHeight is not the same ??
 		double frameInterval = cal.frameInterval; // seconds per frame
 
-		int nbins = Math.round(cleanTraj.size()/2);
+		int nbins = Math.round(cleanTraj.size()/4);
 		 if(choiceAvgSpeedDistrib){
 			 double[] speeds = computeAvgSpeed(cleanTraj, frameInterval, pixelWidth);
 			 histogram(speeds, nbins, "Average Speed Distribution of Microtubules", "Speed in "+unit+"/s", false);
@@ -677,6 +677,23 @@ public class ProjectCommand implements Command {
 		}
 	}
 
+	private Color mapSpeedColor(double speed){
+		Color color = Color.getHSBColor((float) speed, 1f, 1f);
+		color = new Color(color.getRed(), color.getGreen(), color.getBlue(), 120);
+		return color;
+	}
+
+	private void colorSpeed(PartitionedGraph input, double frameInterval, double pixelToUm){
+			for(Spots trajectory : input) {// looping through all the trajectories
+			double[] speeds = computeTrajectorySpeeds(trajectory, frameInterval, pixelToUm);
+
+			for (int i=0; i < speeds.length; ++i){
+				Color speedColor = mapSpeedColor(speeds[i]);
+				trajectory.speed_color[i] = speedColor;
+			}
+		}
+	}
+
 
 	/**
 	 * This method assigns a color to each trajectory based on its average local orientation.
@@ -786,6 +803,22 @@ public class ProjectCommand implements Command {
 		return all_speeds;
 	}
 
+	private double[] computeTrajectorySpeeds(Spots trajectory, double frameInterval, double pixelToUm){
+		double[] trajectory_all_speeds = new double[trajectory.size()-1];
+
+		for (int i = 0; i < trajectory.size() - 1; i++) {
+			Spot a = trajectory.get(i);
+			Spot b = trajectory.get(i + 1);
+
+			double dx     = b.x - a.x;
+			double dy     = b.y - a.y;
+			double speedAtoB = Math.sqrt(dx*dx + dy*dy ) / frameInterval; // speed from a to b
+
+			trajectory_all_speeds[i] = speedAtoB*pixelToUm;
+		}
+
+		return trajectory_all_speeds;
+	}
 
 	/**
 	 * TODO
@@ -807,6 +840,7 @@ public class ProjectCommand implements Command {
 
 		int trajId = 0;
 		for(Spots trajectory : trajToCompute){
+			// TODO adapt with new function computeTrajectorySpeed
 			TreeMap<Integer, Double> trajSpeeds = new TreeMap<>();
 
 			for (int i = 0; i < trajectory.size() - 1; i++) {

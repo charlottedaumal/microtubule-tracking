@@ -11,6 +11,7 @@ import java.util.ArrayList;
 public class Spots extends ArrayList<Spot> {
 
     public Color color = Color.black;
+    public Color[] speed_color;
 
     /**
      * Constructor of the class = mandatory method to build and initialize the "Spots" object

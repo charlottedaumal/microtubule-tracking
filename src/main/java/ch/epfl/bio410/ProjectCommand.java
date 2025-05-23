@@ -171,6 +171,9 @@ public class ProjectCommand implements Command {
 			return true;
 		});
 
+
+
+
 		// Tracking
 		gd2.addMessage("Tracking");
 		gd2.addNumericField("Costmax:", 0.5, 3);
@@ -245,6 +248,7 @@ public class ProjectCommand implements Command {
 		String choiceCostFunc = gd2.getNextChoice();
 		String choiceColoring = gd2.getNextChoice();
 		String choiceLegend = gd2.getNextChoice();
+		boolean preview = gd2.getNextBoolean();
 		boolean choiceAvgSpeedDistrib = gd2.getNextBoolean();
 		boolean choiceTopNSpeeds = gd2.getNextBoolean();
 		boolean choiceAvgOrientDistrib = gd2.getNextBoolean();
@@ -332,10 +336,12 @@ public class ProjectCommand implements Command {
 		// TODO what if the pixelWidth and pixelHeight is not the same ??
 		double frameInterval = cal.frameInterval; // seconds per frame
 
+		int nbins = Math.round(cleanTraj.size()/2);
 		 if(choiceAvgSpeedDistrib){
 			 double[] speeds = computeAvgSpeed(cleanTraj, frameInterval, pixelWidth);
-			 histogram(speeds, 10, "Average Speed Distribution of Microtubules", "Speed in "+unit+"/s", false);
+			 histogram(speeds, nbins, "Average Speed Distribution of Microtubules", "Speed in "+unit+"/s", false);
 		 }
+
 		if(choiceTopNSpeeds){
 			TreeMap<Integer, TreeMap<Integer, Double>> topNSpeeds = computeTopNSpeed(cleanTraj, frameInterval, topN);
 			pointPlot(topNSpeeds, topN, "Speed in "+unit+"/s");
@@ -343,7 +349,7 @@ public class ProjectCommand implements Command {
 
 		if(choiceAvgOrientDistrib){
 			double[] orientations = computeAvgOrientation(cleanTraj);
-			histogram(orientations, 10, "Average Orientation Distribution of Microtubules", "Orientation in radians", true);
+			histogram(orientations, nbins, "Average Orientation Distribution of Microtubules", "Orientation in radians", true);
 		}
 	}
 
@@ -862,6 +868,7 @@ public class ProjectCommand implements Command {
 		double min = Arrays.stream(toplot).min().orElse(0);
 		double max = Arrays.stream(toplot).max().orElse(1);
 		double binWidth = (max - min) / nbins;
+//		int nbins = (int) Math.round((max - min)/binWidth);
 
 		// Initialize bins
 		double[] binCenters = new double[nbins];

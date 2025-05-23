@@ -150,10 +150,6 @@ public class ProjectCommand implements Command {
 		gd2.addToSameRow();
 		gd2.addNumericField("Threshold", 5, 3);
 
-		// retrieve the values from GUI
-		//segmentation
-		sigma = gd2.getNextNumber();
-		threshold = gd2.getNextNumber();
 
 		// Add preview checkbox for the threshold
 		gd2.addCheckbox("Preview detection", false);  // Add your own preview checkbox
@@ -176,9 +172,6 @@ public class ProjectCommand implements Command {
 			}
 			return true;
 		});
-
-
-
 
 		// Tracking
 		gd2.addMessage("Tracking");
@@ -220,7 +213,7 @@ public class ProjectCommand implements Command {
 		topNField.setEnabled(false); // initially off
 		gd2.addDialogListener(new DialogListener() {
 			public boolean dialogItemChanged(GenericDialog gd2, AWTEvent e) {
-				boolean isSpeedEvolutionChecked = ((Checkbox) gd2.getCheckboxes().get(3)).getState();
+				boolean isSpeedEvolutionChecked = ((Checkbox) gd2.getCheckboxes().get(2)).getState();
 				topNField.setEnabled(isSpeedEvolutionChecked);
 				return true;
 			}
@@ -236,15 +229,15 @@ public class ProjectCommand implements Command {
 		gd2.addChoice("Detection of spots", displayOptions, displayOptions[0]);
 		gd2.addChoice("Costs of spots", displayOptions, displayOptions[0]);
 
-
-
-
-
 		gd2.showDialog();
 		if (gd2.wasCanceled()) return;
 
-		boolean preview = gd2.getNextBoolean();
+		// retrieve the values from GUI
+		//segmentation
+		sigma = gd2.getNextNumber();
+		threshold = gd2.getNextNumber();
 
+		boolean preview = gd2.getNextBoolean();
 
 		//tracking
 		costmax = gd2.getNextNumber();

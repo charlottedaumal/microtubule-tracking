@@ -5,6 +5,7 @@ import ij.gui.Line;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 
+import java.awt.*;
 import java.util.ArrayList;
 
 
@@ -55,7 +56,7 @@ public class PartitionedGraph extends ArrayList<Spots> {
     }
 
 
-    public Overlay drawLines(ImagePlus imp) {
+    public Overlay drawLines(ImagePlus imp, Boolean withSpeed) {
         Overlay overlay = imp.getOverlay();
         if (overlay == null) overlay = new Overlay();
         int radius = 3;
@@ -66,19 +67,36 @@ public class PartitionedGraph extends ArrayList<Spots> {
                 Spot spot = spots.get(i);
                 Spot prev = spots.get(i - 1);
                 Line line = new Line(prev.x + 0.5, prev.y + 0.5, spot.x + 0.5, spot.y + 0.5);
-                line.setStrokeColor(spots.color);
+
+
+                if(withSpeed){
+                    line.setStrokeColor(spots.speed_color[i]);
+                }else{
+                    line.setStrokeColor(spots.color);
+                }
+
                 line.setStrokeWidth(2);
                 overlay.add(line);
 
                 OvalRoi roi1 = new OvalRoi(spot.x + 0.5 - radius, spot.y + 0.5 - radius, 2 * radius, 2 * radius);
                 roi1.setPosition(spot.t + 1); // display roi in one frame
-                roi1.setFillColor(spots.color);
+
+                if(withSpeed){
+                    roi1.setFillColor(spots.speed_color[i]);
+                }else{
+                    roi1.setFillColor(spots.color);
+                }
+
                 roi1.setStrokeWidth(1);
                 overlay.add(roi1);
 
                 OvalRoi roi2 = new OvalRoi(prev.x + 0.5 - radius, prev.y + 0.5 - radius, 2 * radius, 2 * radius);
                 roi2.setPosition(prev.t + 1); // display roi in one frame
-                roi2.setFillColor(spots.color);
+                if(withSpeed){
+                    roi2.setFillColor(spots.speed_color[i]);
+                }else{
+                    roi2.setFillColor(spots.color);
+                }
                 roi2.setStrokeWidth(1);
                 overlay.add(roi2);
             }
@@ -90,6 +108,8 @@ public class PartitionedGraph extends ArrayList<Spots> {
         out.setOverlay(overlay);
         return overlay;
     }
+
+
 
 }
 

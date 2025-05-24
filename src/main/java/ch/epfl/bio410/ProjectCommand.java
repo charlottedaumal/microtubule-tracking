@@ -329,12 +329,12 @@ public class ProjectCommand implements Command {
 
 		switch (choiceLegend) {
 			case "Do not display":
-				cleanTraj.drawLines(final_imp);
+				cleanTraj.drawLines(final_imp, false);
 				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
 				final_imp.updateAndDraw();
 				break;
 			case "Display":
-				cleanTraj.drawLines(final_imp);
+				cleanTraj.drawLines(final_imp,false);
 				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
 				final_imp.updateAndDraw();
 				addLegend("Orientation track map (rad)");
@@ -347,6 +347,15 @@ public class ProjectCommand implements Command {
 		String unit = cal.getUnit();
 		// TODO what if the pixelWidth and pixelHeight is not the same ??
 		double frameInterval = cal.frameInterval; // seconds per frame
+
+		// TODO transform into GUI option
+		ImagePlus test = final_imp.duplicate();
+		colorSpeed(cleanTraj, frameInterval, pixelWidth);
+		cleanTraj.drawLines(test, true);
+		test.setDisplayRange(0, test.getStatistics().max );
+		test.updateAndDraw();
+		// TODO also add a legend similar to color orientation for the speeds 
+
 
 		int nbins = Math.round(cleanTraj.size()/4);
 		 if(choiceAvgSpeedDistrib){
@@ -678,14 +687,27 @@ public class ProjectCommand implements Command {
 	}
 
 	private Color mapSpeedColor(double speed){
-		Color color = Color.getHSBColor((float) speed, 1f, 1f);
+		double maxSpeed = 4;
+		// for red - blue mapping
+		float hue = 0.66f - 0.66f * Math.min((float)speed / (float)maxSpeed, 1.0f);
+		// gradient mapping
+//		float hue = (float) Math.min(speed / maxSpeed, 1.0);  // normalize and clamp to [0,1]
+		Color color = Color.getHSBColor((float) hue, 1f, 1f);
 		color = new Color(color.getRed(), color.getGreen(), color.getBlue(), 120);
 		return color;
 	}
 
+	/**
+	 * Method that colors the spots in the trajectories based on their speed.
+	 *
+	 * @param input Graph input with all trajectories
+	 * @param frameInterval the time interval between two frames (to compute speed)
+	 * @param pixelToUm the conversion factor from pixel to micrometers
+	 */
 	private void colorSpeed(PartitionedGraph input, double frameInterval, double pixelToUm){
-			for(Spots trajectory : input) {// looping through all the trajectories
+		for(Spots trajectory : input) {// looping through all the trajectories
 			double[] speeds = computeTrajectorySpeeds(trajectory, frameInterval, pixelToUm);
+			trajectory.initSpeedColor();
 
 			for (int i=0; i < speeds.length; ++i){
 				Color speedColor = mapSpeedColor(speeds[i]);
@@ -804,8 +826,9 @@ public class ProjectCommand implements Command {
 	}
 
 	private double[] computeTrajectorySpeeds(Spots trajectory, double frameInterval, double pixelToUm){
-		double[] trajectory_all_speeds = new double[trajectory.size()-1];
+		double[] trajectory_all_speeds = new double[trajectory.size()];
 
+		trajectory_all_speeds[0] = 0;
 		for (int i = 0; i < trajectory.size() - 1; i++) {
 			Spot a = trajectory.get(i);
 			Spot b = trajectory.get(i + 1);
@@ -814,7 +837,7 @@ public class ProjectCommand implements Command {
 			double dy     = b.y - a.y;
 			double speedAtoB = Math.sqrt(dx*dx + dy*dy ) / frameInterval; // speed from a to b
 
-			trajectory_all_speeds[i] = speedAtoB*pixelToUm;
+			trajectory_all_speeds[i+1] = speedAtoB*pixelToUm;
 		}
 
 		return trajectory_all_speeds;

@@ -11,7 +11,7 @@ import java.util.ArrayList;
 public class Spots extends ArrayList<Spot> {
 
     public Color color = Color.black;
-    public Color[] speed_color;
+    public Color[] speed_color = new Color[this.size()];
 
     /**
      * Constructor of the class = mandatory method to build and initialize the "Spots" object
@@ -19,6 +19,11 @@ public class Spots extends ArrayList<Spot> {
     public Spots() {
         color = Color.getHSBColor((float) Math.random(), 1f, 1f);
         color = new Color(color.getRed(), color.getGreen(), color.getBlue(), 120);
+        speed_color = new Color[this.size()];
+    }
+
+    public void initSpeedColor() {
+        speed_color = new Color[this.size()];
     }
 
     public Spot last() {

@@ -2,7 +2,7 @@ package ch.epfl.bio410.graph;
 
 
 /**
- * Class implementing a "Spot" object, with different attributes.
+ * The Spot class represents a point-like object detected in an image sequence.
  */
 public class Spot {
 	public int x;

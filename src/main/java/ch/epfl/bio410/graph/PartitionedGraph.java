@@ -1,20 +1,27 @@
 package ch.epfl.bio410.graph;
 
+
 import ij.ImagePlus;
 import ij.gui.Line;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 
-import java.awt.*;
 import java.util.ArrayList;
 
 
 /**
- * Class implementing a "PartitionedGraph" object. A "PartitionedGraph" object is a list of "Spots" objects,
- * with additional methods to draw the tracking graph of particles.
+ * Class implementing a "PartitionedGraph" object.  A PartitionedGraph represents a collection of Spots objects, where
+ * each Spots list corresponds to a single trajectory. This class is useful in particle tracking to manage, visualize,
+ * and analyze multiple trajectories.
  */
 public class PartitionedGraph extends ArrayList<Spots> {
 
+    /**
+     * This method retrieves the trajectory that contains the given Spot object.
+     *
+     * @param spot The Spot to search for.
+     * @return The Spots list that contains the specified spot, or null if not found.
+     */
     public Spots getPartitionOf(Spot spot) {
         for (Spots spots : this) {
             for (Spot test : spots) {
@@ -25,6 +32,12 @@ public class PartitionedGraph extends ArrayList<Spots> {
         return null;
     }
 
+    /**
+     * This method creates a new trajectory containing a single Spot and adds it to the graph.
+     *
+     * @param spot The initial Spot of the new trajectory.
+     * @return The created Spots list.
+     */
     public Spots createPartition(Spot spot) {
         Spots spots = new Spots();
         spots.add(spot);
@@ -32,6 +45,13 @@ public class PartitionedGraph extends ArrayList<Spots> {
         return spots;
     }
 
+    /**
+     * This method draws circular ROIs for each Spot object in all trajectories and adds them to an overlay. Each spot
+     * is drawn as a small oval at its (x, y) position on its corresponding time frame.
+     *
+     * @param imp The ImagePlus object to which the spots are drawn.
+     * @return The Overlay containing all spot ROIs.
+     */
     public Overlay drawSpots(ImagePlus imp) {
         Overlay overlay = imp.getOverlay();
         if (overlay == null) overlay = new Overlay();
@@ -55,7 +75,15 @@ public class PartitionedGraph extends ArrayList<Spots> {
         return overlay;
     }
 
-
+    /**
+     * This method draws line segments between consecutive spots in each partition to visualize trajectories. It also
+     * draws circular ROIs at each spot location at the current frame. It can optionally use speed-based coloring for
+     * each trajectory and ROI.
+     *
+     * @param imp The ImagePlus object to which the lines and ROIs are drawn.
+     * @param withSpeed If true, color lines and spots based on per-frame speed color; otherwise use the base color.
+     * @return The Overlay containing all line and spot ROIs.
+     */
     public Overlay drawLines(ImagePlus imp, Boolean withSpeed) {
         Overlay overlay = imp.getOverlay();
         if (overlay == null) overlay = new Overlay();
@@ -108,8 +136,4 @@ public class PartitionedGraph extends ArrayList<Spots> {
         out.setOverlay(overlay);
         return overlay;
     }
-
-
-
 }
-

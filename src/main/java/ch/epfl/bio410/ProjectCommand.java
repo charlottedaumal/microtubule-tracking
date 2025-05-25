@@ -2,7 +2,6 @@ package ch.epfl.bio410;
 
 import ch.epfl.bio410.cost.AbstractDirCost;
 import ch.epfl.bio410.cost.DirectionCost;
-import ch.epfl.bio410.cost.SimpleDistanceCost;
 import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
 import ch.epfl.bio410.graph.Spots;
@@ -672,9 +671,6 @@ public class ProjectCommand implements Command {
 	 * @param input input Partitioned Graph containing trajectories
 	 */
 	private void colorOrientation(PartitionedGraph input){
-		PartitionedGraph out = new PartitionedGraph();
-		SimpleDistanceCost dist = new SimpleDistanceCost(this.costmax);
-
 		for(Spots trajectory : input) {// looping through all the trajectories
 
 			Spot first_spot = trajectory.get(0);

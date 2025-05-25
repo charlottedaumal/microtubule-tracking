@@ -354,7 +354,7 @@ public class ProjectCommand implements Command {
 		cleanTraj.drawLines(test, true);
 		test.setDisplayRange(0, test.getStatistics().max );
 		test.updateAndDraw();
-		// TODO also add a legend similar to color orientation for the speeds 
+		// TODO also add a legend similar to color orientation for the speeds
 
 
 		int nbins = Math.round(cleanTraj.size()/4);
@@ -686,6 +686,12 @@ public class ProjectCommand implements Command {
 		}
 	}
 
+	/**
+	 * Method to map the value of the speed to a color gradient (red to blue)
+	 *
+	 * @param speed value of the speed to map
+	 * @return color corresponding to the given speed value
+	 */
 	private Color mapSpeedColor(double speed){
 		double maxSpeed = 4;
 		// for red - blue mapping
@@ -793,11 +799,12 @@ public class ProjectCommand implements Command {
 	}
 
 	/**
-	 * TODO
-	 * @param frames
-	 * @param frameInterval
-	 * @param pixelToUm
-	 * @return
+	 * Method that computes the average speed of a trajectory for all frames within a partitioned graph
+	 *
+	 * @param frames graph that contains all the trajectories
+	 * @param frameInterval time interval between two frames
+	 * @param pixelToUm conversion factor for pixel to um
+	 * @return all the average speeds for all the trajectories in a list
 	 */
 	private double[] computeAvgSpeed(PartitionedGraph frames, double frameInterval, double pixelToUm){
 		double[] all_speeds = new double[frames.size()];
@@ -825,6 +832,14 @@ public class ProjectCommand implements Command {
 		return all_speeds;
 	}
 
+	/**
+	 * Method that computes all the instantaneous speed for each point of a given trajectory. First speed is set to zero.
+	 *
+	 * @param trajectory the trajectory we want to compute the speeds for
+	 * @param frameInterval the time interval between two frames
+	 * @param pixelToUm the conversion factor from pixel to um
+	 * @return an array that contains all the speeds in the trajectory, of same size as the number of spots in the trajectory
+	 */
 	private double[] computeTrajectorySpeeds(Spots trajectory, double frameInterval, double pixelToUm){
 		double[] trajectory_all_speeds = new double[trajectory.size()];
 
@@ -844,11 +859,12 @@ public class ProjectCommand implements Command {
 	}
 
 	/**
-	 * TODO
-	 * @param frames
-	 * @param frameInterval
-	 * @param topN
-	 * @return
+	 * Computes the instantaneous speeds for the top N trajectories
+	 *
+	 * @param frames graph containing all the trajectories
+	 * @param frameInterval time interval between two frames
+	 * @param topN the number of longest trajectories we want to compute
+	 * @return all the instantaneous speeds for the top N trajectories
 	 */
 	private TreeMap<Integer, TreeMap<Integer, Double>> computeTopNSpeed(PartitionedGraph frames, double frameInterval, int topN){
 		TreeMap<Integer, TreeMap<Integer, Double>> speedMap = new TreeMap<>();
@@ -884,9 +900,10 @@ public class ProjectCommand implements Command {
 
 
 	/**
-	 * TODO
-	 * @param frames
-	 * @return
+	 * Computes the average orientation of trajectories within a graph
+	 *
+	 * @param frames graph with all trajectories
+	 * @return array of average orientations for each trajectory
 	 */
 	private double[] computeAvgOrientation(PartitionedGraph frames) {
 		double[] all_orientations = new double[frames.size()];
@@ -910,12 +927,13 @@ public class ProjectCommand implements Command {
 
 
 	/**
-	 * TODO
-	 * @param toplot
-	 * @param nbins
-	 * @param title
-	 * @param xlabel
-	 * @param setXForAngle
+	 * Method that plots a histogram.
+	 *
+	 * @param toplot array of data to plot
+	 * @param nbins number of bins of the histogram
+	 * @param title title of the plot
+	 * @param xlabel label on x axis
+	 * @param setXForAngle changing the x units to radians
 	 */
 	private void histogram(double[] toplot, int nbins, String title, String xlabel, boolean setXForAngle){
 		double min = Arrays.stream(toplot).min().orElse(0);
@@ -952,10 +970,11 @@ public class ProjectCommand implements Command {
 
 
 	/**
-	 * TODO
-	 * @param toplot
-	 * @param topN
-	 * @param ylabel
+	 * Method to create a point plot of the trajectories speed in time
+	 *
+	 * @param toplot data to plot
+	 * @param topN how many trajectories we plot
+	 * @param ylabel label of the y-axis
 	 */
 	private void pointPlot(TreeMap<Integer, TreeMap<Integer, Double>> toplot, int topN, String ylabel){
 		Plot plot = new Plot("Speeds from the Top " + topN + " Longest Trajectories", "Frames", ylabel);

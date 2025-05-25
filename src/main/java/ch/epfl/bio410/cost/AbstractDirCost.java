@@ -8,7 +8,8 @@ import ch.epfl.bio410.graph.Spot;
 /**
  * The AbstractDirCost interface defines a contract for evaluating directional costs
  * between two Spot objects in the context of a PartitionedGraph, here used in tracking.
- * It provides three methods. One validation method that checks whether the connection between two spots is valid.
+ * It provides four methods. Two validation methods that check whether the connection between two spots is valid, one
+ * having speed incorporated in the cost evaluation and not the other.
  * Two evaluation methods that compute a direction-based cost between two spots, one incorporating speed into the cost
  * evaluation and not the other.
  * Implementing class (DirectionCost) should define specific behaviors for these methods.

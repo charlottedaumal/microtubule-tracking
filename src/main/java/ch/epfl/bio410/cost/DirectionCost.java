@@ -75,7 +75,6 @@ public class DirectionCost implements AbstractDirCost {
 
         if (distance > maxAllowedDistance) return Double.POSITIVE_INFINITY;
 
-        // Combine into a cost (lower is better)
         return this.lambda * distance / this.normDist +
                 this.gamma * (1 - Math.max(0, directionSimilarity)) +
                 (1 - this.lambda - this.gamma)*intensityDiff/this.normInt;
@@ -93,11 +92,10 @@ public class DirectionCost implements AbstractDirCost {
      */
     @Override
     public double evaluate_withSpeed(Spot a, Spot b, PartitionedGraph frames, int dimension) {
-        // Distance
-        double maxAllowedDistance = 10;             // px
-        double dt                 = 1.0;            // frame interval
+        // distance
+        double maxAllowedDistance = 10; // in pixels
+        double dt = 1.0; // frame interval
         // TODO find frame interval !!!
-
         double distance = a.distance(b);
         if (distance > maxAllowedDistance)
             return Double.POSITIVE_INFINITY;
@@ -108,22 +106,21 @@ public class DirectionCost implements AbstractDirCost {
         // direction
         DirectionVector dirA = TrackingFunctions.findDirection(a, frames, dimension);
         DirectionVector dirB = TrackingFunctions.findDirection(b, frames, dimension);
-        double angularPenalty = 1.0 - Math.max(0.0, dirA.cosineSimilarity(dirB)); // 0 (parallel) … 2 (opposite)
+        double angularPenalty = 1.0 - Math.max(0.0, dirA.cosineSimilarity(dirB)); // 0 (parallel) and 2 (opposite)
 
         // speed
-        double speedA = dirA.norm() / dt; // Speed at frame t  (|delta r| / delta t)
+        double speedA = dirA.norm() / dt; // speed at frame t
         double dx     = b.x - a.x;
         double dy     = b.y - a.y;
         double speedB = Math.sqrt(dx*dx + dy*dy ) / dt; // speed from a to b
+        // a large difference between previous speed and current speed is penalized
+        double speedPenalty = Math.abs(speedB - speedA) / (speedA + 1e-6); // avoid division by zero
 
-        // normalise speed change (0 = perfect, 1 = +100 %, 2 = −100 %, …)
-        double speedPenalty = Math.abs(speedB - speedA) / (speedA + 1e-6); // avoid /0
-
-        // FINAL COST
-        double cost = lambda *  distance           / normDist  +          // distance
-                      gamma  *  angularPenalty                   +          // angle
-                      kappa  *  speedPenalty                     +          // speed
-                      (1.0 - lambda - gamma - kappa) * intensityDiff / normInt; // intensity
+        // final cost
+        double cost = lambda *  distance / normDist  +
+                      gamma  *  angularPenalty +
+                      kappa  *  speedPenalty +
+                      (1.0 - lambda - gamma - kappa) * intensityDiff / normInt;
 
         return cost;
     }

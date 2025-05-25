@@ -1,7 +1,8 @@
 package ch.epfl.bio410.graph;
 
+
 /**
- * Class implementing a "Spot" object, with different attributes
+ * Class implementing a "Spot" object, with different attributes.
  */
 public class Spot {
 	public int x;
@@ -10,7 +11,12 @@ public class Spot {
 	public double value = 0;
 
 	/**
-	 * Constructor of the class = mandatory method to build and initialize the "Spot" object
+	 * Constructor of the class.
+	 *
+	 * @param x x-coordinate.
+	 * @param y y-coordinate.
+	 * @param t frame number.
+	 * @param value pixel intensity.
 	 */
 	public Spot(int x, int y, int t, double value) {
 		this.x = x;
@@ -19,6 +25,12 @@ public class Spot {
 		this.value = value;
 	}
 
+	/**
+	 * Method computing the Euclidean distance between this.spot and another spot.
+	 *
+	 * @param spot other spot.
+	 * @return distance between this.spot and the other spot.
+	 */
 	public double distance(Spot spot){
 		return Math.sqrt(Math.pow(this.x - spot.x, 2) + Math.pow(this.y - spot.y, 2));
 	}

@@ -10,6 +10,7 @@ public class Spot {
 	public int t;
 	public double value = 0;
 
+
 	/**
 	 * Constructor of the class.
 	 *
@@ -24,6 +25,7 @@ public class Spot {
 		this.t = t;
 		this.value = value;
 	}
+
 
 	/**
 	 * Method computing the Euclidean distance between this.spot and another spot.

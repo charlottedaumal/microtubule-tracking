@@ -12,6 +12,7 @@ public class DirectionVector {
     public final double dy;
     public final Spot spot;
 
+
     /**
      * Constructor of the class.
      *
@@ -25,6 +26,7 @@ public class DirectionVector {
         this.spot = spot;
     }
 
+
     /**
      * This method computes the norm (Euclidean distance) of the direction vector.
      *
@@ -33,6 +35,7 @@ public class DirectionVector {
     public double norm() {
         return Math.sqrt(dx * dx + dy * dy);
     }
+
 
     /**
      * This method computes the dot product of this vector with another DirectionVector object.
@@ -43,6 +46,7 @@ public class DirectionVector {
     public double dot(DirectionVector other) {
         return dx * other.dx + dy * other.dy;
     }
+
 
     /**
      * This method computes the cosine similarity between this vector and another DirectionVector.

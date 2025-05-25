@@ -59,7 +59,8 @@ public class DirectionCost implements AbstractDirCost {
      * @param a The source Spot.
      * @param b The target Spot.
      * @param frames The PartitionedGraph containing frames.
-     * @param dimension The width and height in pixel of the image area considered.
+     * @param dimension The size (in pixels) of the square search window used to look for the closest spot
+     * in the previous frame.
      * @return A non-negative double representing the directional cost.
      */
     @Override
@@ -87,7 +88,8 @@ public class DirectionCost implements AbstractDirCost {
      * @param a The source Spot.
      * @param b The target Spot.
      * @param frames The PartitionedGraph containing frames.
-     * @param dimension The width and height in pixel of the image area considered.
+     * @param dimension The size (in pixels) of the square search window used to look for the closest spot
+     * in the previous frame.
      * @return A non-negative double representing the directional cost.
      */
     @Override
@@ -133,7 +135,8 @@ public class DirectionCost implements AbstractDirCost {
      * @param a The source Spot.
      * @param b The target Spot.
      * @param frames The PartitionedGraph structure that contains the temporal relationships between frames.
-     * @param dimension The number of spatial dimensions (2 or 3).
+     * @param dimension The size (in pixels) of the square search window used to look for the closest spot
+     * in the previous frame.
      * @return true if the link from a to b is valid; false otherwise.
      */
     @Override
@@ -151,7 +154,8 @@ public class DirectionCost implements AbstractDirCost {
      * @param a The source Spot.
      * @param b The target Spot.
      * @param frames The PartitionedGraph structure that contains the temporal relationships between frames.
-     * @param dimension The number of spatial dimensions (2 or 3).
+     * @param dimension The size (in pixels) of the square search window used to look for the closest spot
+     * in the previous frame.
      * @return true if the link from a to b is valid; false otherwise.
      */
     @Override

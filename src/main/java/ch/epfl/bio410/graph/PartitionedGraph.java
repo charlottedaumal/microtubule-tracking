@@ -16,6 +16,7 @@ import java.util.ArrayList;
  */
 public class PartitionedGraph extends ArrayList<Spots> {
 
+
     /**
      * This method retrieves the trajectory that contains the given Spot object.
      *
@@ -32,6 +33,7 @@ public class PartitionedGraph extends ArrayList<Spots> {
         return null;
     }
 
+
     /**
      * This method creates a new trajectory containing a single Spot and adds it to the graph.
      *
@@ -44,6 +46,7 @@ public class PartitionedGraph extends ArrayList<Spots> {
         add(spots);
         return spots;
     }
+
 
     /**
      * This method draws circular ROIs for each Spot object in all trajectories and adds them to an overlay. Each spot
@@ -74,6 +77,7 @@ public class PartitionedGraph extends ArrayList<Spots> {
         out.setOverlay(overlay);
         return overlay;
     }
+
 
     /**
      * This method draws line segments between consecutive spots in each partition to visualize trajectories. It also

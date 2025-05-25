@@ -15,6 +15,7 @@ public class Spots extends ArrayList<Spot> {
     public Color[] speed_color = new Color[this.size()]; // list of colors depending on their speeds, even though part of
     // the same trajectory
 
+
     /**
      * Constructor of the class. This method constructs an empty Spots list and assigns a random color.
      */
@@ -24,12 +25,14 @@ public class Spots extends ArrayList<Spot> {
         speed_color = new Color[this.size()];
     }
 
+
     /**
      * This method initializes the color array for spot speeds to match the current size of the spot list.
      */
     public void initSpeedColor() {
         speed_color = new Color[this.size()];
     }
+
 
     /**
      * This method returns the last Spot in the list, or null if the list is empty.

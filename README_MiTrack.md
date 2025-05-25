@@ -5,13 +5,19 @@
 This plugin has been developed to allow for a fast and efficient way to 
 track fluorescently tagged EB-3 proteins in a cell to study microtubule dynamics.
 In this plugin was included : 
-- color coding of the trajectories according to the orientation
-- computation of the microtubule speed 
+- Segmentation and tracking algorithm of the microtubules
+- Methods to compute the average or instantaneous speed and orientation of extending microtubules 
+- Quantitative plots generation of speed and orientation distributions
+- Coloring methods to visualise speed changes or orientation of the trajectories
 
 ## ⚙️ How to use it ? 
 
 ### Installation
-- include dependencies
+Install the .jar file named ## name ## into your `Fiji.app > plugins` folder and restart Fiji to 
+finish the installation of the plugin.
+## name of the file
+
+This does not require any additionnal package or dependencies to work aside from the core ImageJ functionalities.
 
 ### Plugin data
 This plugin was designed to segment and track microtubules extending. It was 
@@ -20,12 +26,13 @@ The software exploits the difference in intensity between the background and the
 fluorescent proteins to track microtubule dynamics and thus should be used for 
 fluorescence images with similar characteristics. 
 As MiTrack was specifically designed to track extending microtubules, 
-a few assumptions were made in the tracking : 
+a few assumptions were made in the tracking, mainly being : 
 - EB3 comets do not change directions and have no curvature 
-- the microtubule speed remains constant
 
 
->Any type of file (8, 16 or 32-bits) is accepted.
+> Any type of file (8, 16 or 32-bits) is accepted. The image should be a 2D stack, with a time axis.
+> The speed units computed are only correct for input data where the scale of pixels is the 
+> same in x and y directions.
 
 
 

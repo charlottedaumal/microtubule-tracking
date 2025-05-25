@@ -1,5 +1,6 @@
 package ch.epfl.bio410;
 
+
 import ch.epfl.bio410.cost.AbstractDirCost;
 import ch.epfl.bio410.cost.DirectionCost;
 import ch.epfl.bio410.graph.PartitionedGraph;
@@ -51,9 +52,8 @@ public class ProjectCommand implements Command {
 		ImagePlus imp = IJ.openImage(filePath+fileName);
 
 		GenericDialog gd = new GenericDialog("Welcome to the MiTrack Plugin :)");
-		//TODO change message text in bold if possible ??
 
-		// === Parameter Tuning Part I Section ===
+		// parameter tuning part I section
 		gd.addMessage("=== Parameter Tuning Part I ===");
 
 		String[] displayOptions = {
@@ -61,15 +61,14 @@ public class ProjectCommand implements Command {
 				"Display",
 		};
 
-		// Preprocessing
+		// preprocessing
 		gd.addMessage("Preprocessing");
 		gd.addNumericField("Sigma1:", 5,2);
 		gd.addToSameRow();
 		gd.addNumericField("Sigma2:", 1.25,2);
 		gd.addMessage("");
 
-		// === Slider for WindowExp ===
-
+		// slider for WindowExp
 		int windowExpInit = 3; // initial value
 		int minExp = 1;
 		int maxExp = 3;
@@ -83,13 +82,12 @@ public class ProjectCommand implements Command {
 
 		// Label to show current value
 		JLabel valueLabel = new JLabel("     WindowExp:    ");
-
 		// Update value on slider move
 		slider.addChangeListener(e -> {
 			windowExp[0] = slider.getValue();
 		});
 
-		// Wrap slider and label in AWT Panel
+		// wrap slider and label in AWT Panel
 		Panel sliderPanel = new Panel(new BorderLayout());
 		sliderPanel.add(slider, BorderLayout.CENTER);
 		sliderPanel.add(valueLabel, BorderLayout.WEST);
@@ -101,7 +99,7 @@ public class ProjectCommand implements Command {
 		gd.showDialog();
 		if (gd.wasCanceled()) return;
 
-		// retrieve the values from GUI for preprocessing
+		// retrieve the values from the first GUI
 		sigma1 = gd.getNextNumber();
 		sigma2 = gd.getNextNumber();
 		int chosenWindowExp = windowExp[0];
@@ -112,11 +110,13 @@ public class ProjectCommand implements Command {
 		imp.setTitle("Original Image");
 		imp.show();
 
+		// applying dog filter and median filtering for denoizing and background homogenization
 		ImagePlus result = processStack(imp, ip -> dog(ip, sigma1, sigma2));
 		ImagePlus outputstack = processStack(result, this::normalisation);
 		outputstack.setTitle("Preprocessed Stack");
 		IJ.run(outputstack, "Median...", "radius=1 stack");
 
+		// display the preprocessed stack depending on the choice of the user
 		switch (choicePreprocessed) {
 			case "Do not display":
 				break;
@@ -127,7 +127,7 @@ public class ProjectCommand implements Command {
 				break;
 		}
 
-		// temporal projection using the wrapper
+		// temporal projection
 		TemporalProjector tp = new TemporalProjector(outputstack, "sum", "left", chosenWindowExp);
 		ImagePlus temporalExposure = processStack(outputstack, (ImageProcessor ip) -> tp.apply(ip));
 
@@ -140,42 +140,38 @@ public class ProjectCommand implements Command {
 
 		NonBlockingGenericDialog gd2 = new NonBlockingGenericDialog("Select further parameters!");
 
-		// === Parameter Tuning Part II Section ===
+		// parameter tuning part II section
 		gd2.addMessage("=== Parameter Tuning Part II ===");
 
-		// Segmentation
+		// segmentation
 		gd2.addMessage("Segmentation");
 		gd2.addNumericField("Sigma:", 1, 2);
 		gd2.addToSameRow();
 		gd2.addNumericField("Threshold", 5, 3);
 
 
-		// Add preview checkbox for the threshold
-		gd2.addCheckbox("Preview detection", false);  // Add your own preview checkbox
+		// add preview checkbox for the threshold
+		gd2.addCheckbox("Preview detection", false);
 
 		gd2.addDialogListener((dialog, e) -> {
 			if (gd2.wasCanceled()) return false;
-
-			// Use getNextNumber/getNextBoolean carefully or refer to indices
-			// OR directly access checkboxes:
-			Checkbox previewCheckbox = (Checkbox) gd2.getCheckboxes().get(0);  // adjust index if needed
+			Checkbox previewCheckbox = (Checkbox) gd2.getCheckboxes().get(0);
 			if (previewCheckbox.getState()) {
 				double previewSigma = Double.parseDouble(((TextField) gd2.getNumericFields().get(0)).getText());
 				double previewThreshold = Double.parseDouble(((TextField) gd2.getNumericFields().get(1)).getText());
 				int frame = chosenWindowExp + 2;
 				ImagePlus singleFrame = new ImagePlus("Frame " + (frame),
 						tempDiff.getStack().getProcessor(frame).duplicate());
-				singleFrame.setDimensions(1, 1, 1);  // Single-slice image
+				singleFrame.setDimensions(1, 1, 1);
 
 				PartitionedGraph preview = detect(singleFrame, previewSigma, previewThreshold, false);
 				preview.drawSpots(singleFrame);
 				previewCheckbox.setState(false);
-
 			}
 			return true;
 		});
 
-		// Tracking
+		// tracking
 		gd2.addMessage("Tracking");
 		gd2.addNumericField("Costmax:", 0.5, 3);
 		gd2.addToSameRow();
@@ -185,26 +181,32 @@ public class ProjectCommand implements Command {
 		gd2.addNumericField("Kappa", 0.15, 3);
 		gd2.addMessage("");
 
-		// === Results Options ===
+		// results options
 		gd2.addMessage("=== Results options ===");
 
 		String[] coloringOptions = {
 				"Random",
 				"Global average orientation",
 				"Average local orientation",
+				"Instantaneous velocity",
 		};
 		String[] costOptions = {
 				"Balanced with distance, direction and intensity",
 				"Balanced with distance, direction, intensity and speed",
 		};
+		String[] legendOptions = {
+				"Do not display",
+				"Legend for orientation coloring",
+				"Legend for velocity coloring",
+		};
 
-		// Trajectories determination and display
+		// trajectories determination and display
 		gd2.addChoice("Cost function", costOptions, costOptions[0]);
 		gd2.addChoice("Coloring of Trajectories", coloringOptions, coloringOptions[0]);
 		gd2.addToSameRow();
-		gd2.addChoice("Color map legend", displayOptions, displayOptions[0]);
+		gd2.addChoice("Color map legend", legendOptions, legendOptions[0]);
 
-		// Speeds
+		// speeds
 		gd2.addCheckbox("Average speed distribution", false);
 		gd2.addToSameRow();
 		gd2.addCheckbox("Speed evolution from TopN longest trajectories", false);
@@ -223,7 +225,7 @@ public class ProjectCommand implements Command {
 		gd2.addCheckbox("Average orientation distribution", false);
 		gd2.addMessage("");
 
-		// === Advanced Options ===
+		// advanced options
 		gd2.addMessage("=== Advanced Options ===");
 		gd2.addCheckbox("Display all", false);
 		gd2.addChoice("Detection of local max", displayOptions, displayOptions[0]);
@@ -234,11 +236,10 @@ public class ProjectCommand implements Command {
 		gd2.showDialog();
 		if (gd2.wasCanceled()) return;
 
-		// retrieve the values from GUI
+		// retrieve the values from second GUI
 		//segmentation
 		sigma = gd2.getNextNumber();
 		threshold = gd2.getNextNumber();
-
 		boolean preview = gd2.getNextBoolean();
 
 		//tracking
@@ -247,26 +248,33 @@ public class ProjectCommand implements Command {
 		gamma = gd2.getNextNumber();
 		kappa = gd2.getNextNumber();
 
+		// trajectories determination and display
 		String choiceCostFunc = gd2.getNextChoice();
 		String choiceColoring = gd2.getNextChoice();
 		String choiceLegend = gd2.getNextChoice();
+
+		// speeds
 		boolean choiceAvgSpeedDistrib = gd2.getNextBoolean();
 		boolean choiceTopNSpeeds = gd2.getNextBoolean();
 		boolean choiceAvgOrientDistrib = gd2.getNextBoolean();
 		int topN = (int) gd2.getNextNumber();
+
+		// advanced options
 		boolean choiceDisplayAll = gd2.getNextBoolean();
 		String choiceDetectLocalMax = gd2.getNextChoice();
 		String choiceSpotsDetection = gd2.getNextChoice();
 		String choiceSpotsCosts= gd2.getNextChoice();
 
+		// initializing parameters so that all intermediate results are displayed
+		// following the choice of the user
 		boolean userChoiceLocalMax = false;
 		boolean userChoiceCosts = false;
-
 		if(choiceDisplayAll){
 			userChoiceLocalMax = true;
 			userChoiceCosts = true;
 		}
 
+		// display the local maxima detection depending on the choice of the user
 		switch (choiceDetectLocalMax) {
 			case "Do not display":
 				break;
@@ -275,12 +283,15 @@ public class ProjectCommand implements Command {
 				break;
 		}
 
+		// detection of spots
 		PartitionedGraph framesDiff = detect(tempDiff,sigma,threshold, userChoiceLocalMax);
 
+		// display the detected spots if the user has checked the "Display all" checkbox
 		if(choiceDisplayAll){
 			framesDiff.drawSpots(tempDiff);
 		}
 
+		// display the detected spots depending on the choice of the user
 		switch (choiceSpotsDetection) {
 			case "Do not display":
 				break;
@@ -289,6 +300,7 @@ public class ProjectCommand implements Command {
 				break;
 		}
 
+		// set parameters to display costs of spots depending on the choice of the user
 		int dimension = 20;
 		switch (choiceSpotsCosts) {
 			case "Do not display":
@@ -298,6 +310,8 @@ public class ProjectCommand implements Command {
 				break;
 		}
 
+		// track spots across frames using a tailored cost function from two different options
+		// depending on the user choice
 		AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
 		PartitionedGraph trajectoriesDiff = new PartitionedGraph();
 		switch (choiceCostFunc) {
@@ -309,64 +323,77 @@ public class ProjectCommand implements Command {
 				break;
 		}
 
+		// get rid of too short trajectories
 		PartitionedGraph cleanTraj = cleaningTrajectories(trajectoriesDiff, 5);
 
+		// get important parameters for speed computation
+		Calibration cal = imp.getCalibration();
+		double pixelWidth = cal.pixelWidth; // pixel width = height (pixels are considered as square)
+		String unit = cal.getUnit();
+		double frameInterval = cal.frameInterval; // seconds per frame
+
+		// display one coloring for trajectories from four different options
+		// depending on the user choice
 		ImagePlus final_imp = tempDiff.duplicate();
 		switch (choiceColoring) {
 			case "Random":
 				final_imp.setTitle("with Random Coloring");
 				break;
 			case "Global average orientation":
-				final_imp.setTitle("with Global Average Orientation Coloring");
+				final_imp.setTitle("with Coloring According to Global Average Orientation");
 				colorOrientation(cleanTraj);
 				break;
 			case "Average local orientation":
-				final_imp.setTitle("with Average Local Orientation Coloring");
+				final_imp.setTitle("with Coloring According to Average Local Orientation");
 				colorOrientationAverage(cleanTraj);
+				break;
+			case "Instantaneous velocity":
+				final_imp.setTitle("with Coloring According to Instantaneous Velocities");
+				colorSpeed(cleanTraj, frameInterval, pixelWidth);
 				break;
 		}
 
+		// display a color map legend depending on the user choice
 		switch (choiceLegend) {
 			case "Do not display":
 				cleanTraj.drawLines(final_imp, false);
 				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
 				final_imp.updateAndDraw();
 				break;
-			case "Display":
+			case "Legend for orientation coloring":
 				cleanTraj.drawLines(final_imp,false);
 				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
 				final_imp.updateAndDraw();
-				addLegend("Orientation track map (rad)");
+				addLegend("Orientation track map (rad)", false);
+				break;
+			case "Legend for velocity coloring":
+				cleanTraj.drawLines(final_imp, true);
+				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
+				final_imp.updateAndDraw();
+				addLegend("Velocity track map (um/s)", true);
 				break;
 		}
-
-		Calibration cal = imp.getCalibration();
-		double pixelWidth = cal.pixelWidth;
-		double pixelHeight = cal.pixelHeight;
-		String unit = cal.getUnit();
-		// TODO what if the pixelWidth and pixelHeight is not the same ??
-		double frameInterval = cal.frameInterval; // seconds per frame
-
-		// TODO transform into GUI option
-		ImagePlus test = final_imp.duplicate();
-		colorSpeed(cleanTraj, frameInterval, pixelWidth);
-		cleanTraj.drawLines(test, true);
-		test.setDisplayRange(0, test.getStatistics().max );
-		test.updateAndDraw();
 		// TODO also add a legend similar to color orientation for the speeds
 
-
+		// initializing the number of bins to plot the histograms
 		int nbins = Math.round(cleanTraj.size()/4);
+
+		// display average speed distribution of spots over the entire stack
+		// depending on the user choice
 		 if(choiceAvgSpeedDistrib){
 			 double[] speeds = computeAvgSpeed(cleanTraj, frameInterval, pixelWidth);
 			 histogram(speeds, nbins, "Average Speed Distribution of Microtubules", "Speed in "+unit+"/s", false);
 		 }
 
+		// display the speeds of the topN longest trajectories in a line plot depending
+		// on the user choice
 		if(choiceTopNSpeeds){
 			TreeMap<Integer, TreeMap<Integer, Double>> topNSpeeds = computeTopNSpeed(cleanTraj, frameInterval, topN);
 			pointPlot(topNSpeeds, topN, "Speed in "+unit+"/s");
 		}
 
+		// display the average orientation of trajectories distribution over the entire stack
+		// depending on the user choice
 		if(choiceAvgOrientDistrib){
 			double[] orientations = computeAvgOrientation(cleanTraj);
 			histogram(orientations, nbins, "Average Orientation Distribution of Microtubules", "Orientation in radians", true);
@@ -386,9 +413,9 @@ public class ProjectCommand implements Command {
 	/**
 	 * This method allows to process and apply the given function to a whole ImagePlus object.
 	 *
-	 * @param imp the ImagePlus on which we want to apply the function
-	 * @param func the function that we want to apply to each frame's processor
-	 * @return ImagePlus object where func has been applied to each image processor
+	 * @param imp The ImagePlus on which we want to apply the function.
+	 * @param func The function that we want to apply to each frame's processor.
+	 * @return An ImagePlus object where func has been applied to each image processor.
 	 */
 	private ImagePlus processStack(ImagePlus imp, ImageProcessorFunction func) {
 		ImageStack newStack = new ImageStack(imp.getWidth(), imp.getHeight());
@@ -412,9 +439,9 @@ public class ProjectCommand implements Command {
 	 * This method creates a DoG filter processor for a given processor.
 	 * The level of blur of the filter is adjusted by the parameter sigma.
 	 *
-	 * @param ip the ImageProcessor of an ImagePlus object
-	 * @param sigma the level of blur of the gaussian filters
-	 * @return a DoG processor
+	 * @param ip The ImageProcessor of an ImagePlus object.
+	 * @param sigma The level of blur of the gaussian filters.
+	 * @return A DoG processor.
 	 */
 	private ImageProcessor classic_dog(ImageProcessor ip, double sigma) {
 		ImagePlus g1 = new ImagePlus("g1", ip.duplicate());
@@ -432,10 +459,10 @@ public class ProjectCommand implements Command {
 	 * Sigma1 and Sigma2 are unpaired to have better control on the filtering, which
 	 * is best suited for our application here.
 	 *
-	 * @param ip the processor of a given ImagePlus object
-	 * @param sigma1 the level of blur of the first gaussian filter = what objects we want to remove (background)
-	 * @param sigma2 the level of blur of the second gaussian filter = what objects we want to keep
-	 * @return ImageProcessor of the DoG filtered image
+	 * @param ip The processor of a given ImagePlus object.
+	 * @param sigma1 The level of blur of the first gaussian filter = what objects we want to remove (background).
+	 * @param sigma2 The level of blur of the second gaussian filter = what objects we want to keep.
+	 * @return ImageProcessor of the DoG filtered image.
 	 */
 	private ImageProcessor dog(ImageProcessor ip, double sigma1, double sigma2 ) {
 		ImagePlus g1 = new ImagePlus("g1", ip.duplicate());
@@ -451,8 +478,8 @@ public class ProjectCommand implements Command {
 	/**
 	 * This method normalises the image's pixels values for a single processor.
 	 *
-	 * @param ip the image processor with pixel values to normalise
-	 * @return ImageProcessor with pixel values normalised
+	 * @param ip The image processor with pixel values to normalise.
+	 * @return ImageProcessor with pixel values normalised.
 	 */
 	private ImageProcessor normalisation(ImageProcessor ip){
 		ImagePlus frame = new ImagePlus("f",ip.duplicate());
@@ -475,10 +502,10 @@ public class ProjectCommand implements Command {
 	 * filtered image and compare it to the values of its surrounding pixels. If it is a local maxima, it stores the
 	 * coordinates, the frame number and the corresponding pixel value from the unfiltered image in a list.
 	 *
-	 * @param dog ImageProcessor containing the DoG filtered image
-	 * @param image original ImagePlus unfiltered used to apply the intensity threshold
-	 * @param t the current time frame
-	 * @param threshold the minimum intensity in the original image to detect a local maximum
+	 * @param dog ImageProcessor containing the DoG filtered image.
+	 * @param image Original ImagePlus unfiltered used to apply the intensity threshold.
+	 * @param t The current time frame.
+	 * @param threshold The minimum intensity in the original image to detect a local maximum.
 	 * @return Spots containing all local maxima spots of the current time frame.
 	 */
 	public Spots localMax(ImageProcessor dog, ImageProcessor image, int t, double threshold) {
@@ -513,10 +540,10 @@ public class ProjectCommand implements Command {
 	 * The size of the spots detected is saved into the IJ log and they are added into a partitioned graph
 	 * which is returned by the method.
 	 *
-	 * @param imp the ImagePlus object input
-	 * @param sigma the level of blur of the gaussian filter of the DoG
-	 * @param threshold the threshold of intensity to detect spots in the image input imp
-	 * @return Graph that contains the spots detected
+	 * @param imp The ImagePlus object input.
+	 * @param sigma The level of blur of the gaussian filter of the DoG.
+	 * @param threshold The threshold of intensity to detect spots in the image input imp.
+	 * @return Graph that contains the spots detected.
 	 */
 	private PartitionedGraph detect(ImagePlus imp, double sigma, double threshold, boolean user_choice) {
 
@@ -546,10 +573,10 @@ public class ProjectCommand implements Command {
 	 * match is found or the end of the sequence is reached. Matching is constrained by a maximum cost threshold
 	 * and a spatial dimension constraint.
 	 *
-	 * @param frames input Partitioned Graph
-	 * @param cost the implementation of cost and validation criteria to link spots together
-	 * @param dimension the integer specifying a dimensional constraint for cost evaluation
-	 * @return Partitioned Graph where each partition corresponds to a tracked trajectory
+	 * @param frames The input Partitioned Graph.
+	 * @param cost The implementation of cost and validation criteria to link spots together.
+	 * @param dimension The integer specifying a dimensional constraint for cost evaluation.
+	 * @return Partitioned Graph where each partition corresponds to a tracked trajectory.
 	 */
 	private PartitionedGraph directionalTracking(PartitionedGraph frames, AbstractDirCost cost, int dimension, boolean user_choice, boolean speed) {
 		PartitionedGraph trajectories = new PartitionedGraph();
@@ -563,19 +590,17 @@ public class ProjectCommand implements Command {
 						double trajectory_cost = this.costmax; // set the first cost value to be the highest possible
 						Spot next_spot = null; // we first initialize the next_spot to be null
 						for(Spot next : frames.get(t+1)) { // iterate over all spots of the next frame
-							if (cost.validate(next, spot, frames, dimension) == true) { // if the cost is lesser than the costmax
-								if(speed){
-									if(cost.evaluate_withSpeed(next, spot, frames, dimension) < trajectory_cost) {
-										// if the new cost is less than the previous one we save the spot
-										trajectory_cost = cost.evaluate(next, spot, frames, dimension);
-										next_spot = next;
-									}
-								}else{
-									if(cost.evaluate(next, spot, frames, dimension) < trajectory_cost) {
-										// if the new cost is less than the previous one we save the spot
-										trajectory_cost = cost.evaluate(next, spot, frames, dimension);
-										next_spot = next;
-									}
+							if(speed) {
+								if (cost.validate_withSpeed(next, spot, frames, dimension) == true) {
+									// if the new cost is less than the previous one we save the spot
+									trajectory_cost = cost.evaluate_withSpeed(next, spot, frames, dimension);
+									next_spot = next;
+								}
+							}else{
+								if (cost.validate(next, spot, frames, dimension) == true) { // if the cost is lesser than the costmax
+									// if the new cost is less than the previous one we save the spot
+									trajectory_cost = cost.evaluate(next, spot, frames, dimension);
+									next_spot = next;
 								}
 							}
 						}
@@ -603,9 +628,9 @@ public class ProjectCommand implements Command {
 	 * It iterates through each trajectory in the input graph and retains only those whose length (i.e., number of spots)
 	 * exceeds the specified threshold.
 	 *
-	 * @param frames input Partitioned Graph
-	 * @param min_length the minimum number of spots a trajectory must have to be retained (threshold)
-	 * @return Partitioned Graph containing trajectories only longer than the chosen threshold
+	 * @param frames The input Partitioned Graph.
+	 * @param min_length The minimum number of spots a trajectory must have to be retained (threshold).
+	 * @return Partitioned Graph containing trajectories only longer than the chosen threshold.
 	 */
 	private PartitionedGraph cleaningTrajectories(PartitionedGraph frames, int min_length){
 		// trying to clean up minimal trajectories to lighten memory load
@@ -624,9 +649,9 @@ public class ProjectCommand implements Command {
 	 * The angle is measured counterclockwise from the positive x-axis to the vector, and it is computed using the
 	 * built-in Math.atan2() function, which uses cartesian coordinates and correctly handles the sign of the vector.
 	 *
-	 * @param dx the horizontal component of the vector
-	 * @param dy the vertical component of the vector
-	 * @return the angle in radians in the range [-π, π]
+	 * @param dx The horizontal component of the vector.
+	 * @param dy The vertical component of the vector.
+	 * @return The angle in radians in the range [-π, π].
 	 */
 	public double getOrientation(double dx, double dy){
 		return Math.atan2(dy, dx); // in radians
@@ -638,9 +663,9 @@ public class ProjectCommand implements Command {
 	 * vector with respect to the horizontal x-axis. Here, this angle can be used to determine the direction of motion
 	 * between two points in a trajectory.
 	 *
-	 * @param start the starting point
-	 * @param end the ending spot
-	 * @return the orientation angle in radians, in the range [-π, π]
+	 * @param start The starting point.
+	 * @param end The ending spot.
+	 * @return The orientation angle in radians, in the range [-π, π].
 	 */
 	public double getOrientation(Spot start, Spot end){
 		double dx = end.x - start.x;
@@ -652,8 +677,8 @@ public class ProjectCommand implements Command {
 	/**
 	 * This method maps the orientation of a vector to a color gradient
 	 *
-	 * @param orientation angle of a vector, in radians
-	 * @return Color object being the new color corresponding to the orientation
+	 * @param orientation Angle of a vector, in radians.
+	 * @return Color object being the new color corresponding to the orientation.
 	 */
 	private Color mapColor(double orientation){
 		float hue = (float) ((orientation + Math.PI) / (2 * Math.PI));
@@ -668,7 +693,7 @@ public class ProjectCommand implements Command {
 	 * this method computes the "global" orientation by taking the vector from the first to the last spot in the
 	 * trajectory. This orientation is then mapped to a specific color, and the trajectory is annotated with this color.
 	 *
-	 * @param input input Partitioned Graph containing trajectories
+	 * @param input The input Partitioned Graph containing trajectories.
 	 */
 	private void colorOrientation(PartitionedGraph input){
 		for(Spots trajectory : input) {// looping through all the trajectories
@@ -682,42 +707,6 @@ public class ProjectCommand implements Command {
 		}
 	}
 
-	/**
-	 * Method to map the value of the speed to a color gradient (red to blue)
-	 *
-	 * @param speed value of the speed to map
-	 * @return color corresponding to the given speed value
-	 */
-	private Color mapSpeedColor(double speed){
-		double maxSpeed = 4;
-		// for red - blue mapping
-		float hue = 0.66f - 0.66f * Math.min((float)speed / (float)maxSpeed, 1.0f);
-		// gradient mapping
-//		float hue = (float) Math.min(speed / maxSpeed, 1.0);  // normalize and clamp to [0,1]
-		Color color = Color.getHSBColor((float) hue, 1f, 1f);
-		color = new Color(color.getRed(), color.getGreen(), color.getBlue(), 120);
-		return color;
-	}
-
-	/**
-	 * Method that colors the spots in the trajectories based on their speed.
-	 *
-	 * @param input Graph input with all trajectories
-	 * @param frameInterval the time interval between two frames (to compute speed)
-	 * @param pixelToUm the conversion factor from pixel to micrometers
-	 */
-	private void colorSpeed(PartitionedGraph input, double frameInterval, double pixelToUm){
-		for(Spots trajectory : input) {// looping through all the trajectories
-			double[] speeds = computeTrajectorySpeeds(trajectory, frameInterval, pixelToUm);
-			trajectory.initSpeedColor();
-
-			for (int i=0; i < speeds.length; ++i){
-				Color speedColor = mapSpeedColor(speeds[i]);
-				trajectory.speed_color[i] = speedColor;
-			}
-		}
-	}
-
 
 	/**
 	 * This method assigns a color to each trajectory based on its average local orientation.
@@ -726,7 +715,7 @@ public class ProjectCommand implements Command {
 	 * This method is more robust than using only the global direction, as it accounts for curvature and small changes
 	 * in direction across the trajectory.
 	 *
-	 * @param input input PartitionedGraph containing trajectories
+	 * @param input The input PartitionedGraph containing trajectories.
 	 */
 	private void colorOrientationAverage(PartitionedGraph input) {
 		for (Spots trajectory : input) {
@@ -750,15 +739,52 @@ public class ProjectCommand implements Command {
 
 
 	/**
+	 * Method to map the value of the speed to a color gradient (red to blue).
+	 *
+	 * @param speed Value of the speed to map.
+	 * @return Color corresponding to the given speed value.
+	 */
+	private Color mapSpeedColor(double speed){
+		double maxSpeed = 4;
+		// for red - blue mapping
+		float hue = 0.66f - 0.66f * Math.min((float)speed / (float)maxSpeed, 1.0f);
+		// gradient mapping
+//		float hue = (float) Math.min(speed / maxSpeed, 1.0);  // normalize and clamp to [0,1]
+		Color color = Color.getHSBColor((float) hue, 1f, 1f);
+		color = new Color(color.getRed(), color.getGreen(), color.getBlue(), 120);
+		return color;
+	}
+
+	/**
+	 * This method colors the spots in the trajectories based on their speed.
+	 *
+	 * @param input Graph input with all trajectories.
+	 * @param frameInterval The time interval between two frames (to compute speed).
+	 * @param pixelToUm The conversion factor from pixel to micrometers.
+	 */
+	private void colorSpeed(PartitionedGraph input, double frameInterval, double pixelToUm){
+		for(Spots trajectory : input) {
+			double[] speeds = computeTrajectorySpeeds(trajectory, frameInterval, pixelToUm);
+			trajectory.initSpeedColor();
+
+			for (int i=0; i < speeds.length; ++i){
+				Color speedColor = mapSpeedColor(speeds[i]);
+				trajectory.speed_color[i] = speedColor;
+			}
+		}
+	}
+
+
+	/**
 	 * This method adds a horizontal color map legend below each frame of an ImagePlus stack and displays the modified
 	 * image. The legend is a color bar representing orientations of trajectories from -π to π.
 	 * This method pads each frame of the original image vertically to make room for the legend, copies the original
 	 * content into the new frame, fills the padded region with white, and then draws a color gradient representing
 	 * angles from -π to π using a color mapping function.
 	 *
-	 * @param legend_title title for the color map legend
+	 * @param legend_title Title for the color map legend.
 	 */
-	private void addLegend(String legend_title) {
+	private void addLegend(String legend_title, boolean withSpeed) {
 		int legendWidth = 500;
 		int legendHeight = 50;
 		int labelHeight = 60; // extra height for labels and title
@@ -768,31 +794,51 @@ public class ProjectCommand implements Command {
 		legendIp.setColor(Color.WHITE); // Fill background with white
 		legendIp.fill();
 
-		// Draw the color bar
-		for (int i = 0; i < legendWidth; i++) {
-			double angle = (2 * Math.PI) * i / (double) (legendWidth - 1);
-			Color c = mapColor(angle);
-			for (int j = 0; j < legendHeight; j++) {
-				legendIp.setColor(c);
-				legendIp.drawPixel(i, j);
+		if(withSpeed){
+			// draw color bar for speed
+			double maxSpeed = 5.0 ; // TODO: find a way to have maxSpeed robust and not hardcoded
+			for (int i = 0; i < legendWidth; i++) {
+				double speed = maxSpeed * i / (double) (legendWidth - 1);
+				Color c = mapSpeedColor(speed);
+				for (int j = 0; j < legendHeight; j++) {
+					legendIp.setColor(c);
+					legendIp.drawPixel(i, j);
+				}
 			}
+			// draw labels for speed
+			legendIp.setColor(Color.BLACK);
+			legendIp.setFont(new Font("SansSerif", Font.PLAIN, 14));
+			legendIp.drawString("0", 0, legendHeight + 20);
+			legendIp.drawString(String.format("%.1f", maxSpeed), legendWidth - 40, legendHeight + 20);
+
+		}else{
+			// draw the color bar
+			for (int i = 0; i < legendWidth; i++) {
+				double angle = (2 * Math.PI) * i / (double) (legendWidth - 1);
+				Color c = mapColor(angle);
+				for (int j = 0; j < legendHeight; j++) {
+					legendIp.setColor(c);
+					legendIp.drawPixel(i, j);
+				}
+			}
+			// draw labels for orientation
+			legendIp.setColor(Color.BLACK);
+			legendIp.setFont(new Font("SansSerif", Font.PLAIN, 14));
+			legendIp.drawString("-π", 0, legendHeight + 20);
+			legendIp.drawString("π", legendWidth - 20, legendHeight + 20);
+
 		}
 
-		// Draw labels and title
-		legendIp.setColor(Color.BLACK);
-		legendIp.setFont(new Font("SansSerif", Font.PLAIN, 14));
-		legendIp.drawString("-π", 0, legendHeight + 20);
-		legendIp.drawString("π", legendWidth - 20, legendHeight + 20);
-
-		// Title centered
+		// title centered
 		legendIp.setFont(new Font("SansSerif", Font.PLAIN, 18));
 		int titleX = (legendWidth - legendIp.getStringWidth(legend_title)) / 2;
 		legendIp.drawString(legend_title, titleX, legendHeight + 45);
 
-		// Show in new window
+		// show in new window
 		ImagePlus legendImp = new ImagePlus("Legend", legendIp);
 		legendImp.show();
 	}
+
 
 	/**
 	 * Method that computes the average speed of a trajectory for all frames within a partitioned graph
@@ -828,13 +874,14 @@ public class ProjectCommand implements Command {
 		return all_speeds;
 	}
 
+
 	/**
 	 * Method that computes all the instantaneous speed for each point of a given trajectory. First speed is set to zero.
 	 *
-	 * @param trajectory the trajectory we want to compute the speeds for
-	 * @param frameInterval the time interval between two frames
-	 * @param pixelToUm the conversion factor from pixel to um
-	 * @return an array that contains all the speeds in the trajectory, of same size as the number of spots in the trajectory
+	 * @param trajectory The trajectory we want to compute the speeds for.
+	 * @param frameInterval The time interval between two frames.
+	 * @param pixelToUm The conversion factor from pixel to um.
+	 * @return An array that contains all the speeds in the trajectory, of same size as the number of spots in the trajectory.
 	 */
 	private double[] computeTrajectorySpeeds(Spots trajectory, double frameInterval, double pixelToUm){
 		double[] trajectory_all_speeds = new double[trajectory.size()];
@@ -854,13 +901,14 @@ public class ProjectCommand implements Command {
 		return trajectory_all_speeds;
 	}
 
+
 	/**
-	 * Computes the instantaneous speeds for the top N trajectories
+	 * Computes the instantaneous speeds for the top N trajectories.
 	 *
-	 * @param frames graph containing all the trajectories
-	 * @param frameInterval time interval between two frames
-	 * @param topN the number of longest trajectories we want to compute
-	 * @return all the instantaneous speeds for the top N trajectories
+	 * @param frames Graph containing all the trajectories.
+	 * @param frameInterval Time interval between two frames.
+	 * @param topN The number of longest trajectories we want to compute.
+	 * @return All the instantaneous speeds for the top N trajectories.
 	 */
 	private TreeMap<Integer, TreeMap<Integer, Double>> computeTopNSpeed(PartitionedGraph frames, double frameInterval, int topN){
 		TreeMap<Integer, TreeMap<Integer, Double>> speedMap = new TreeMap<>();
@@ -896,10 +944,10 @@ public class ProjectCommand implements Command {
 
 
 	/**
-	 * Computes the average orientation of trajectories within a graph
+	 * Computes the average orientation of trajectories within a graph.
 	 *
-	 * @param frames graph with all trajectories
-	 * @return array of average orientations for each trajectory
+	 * @param frames Graph with all trajectories.
+	 * @return Array of average orientations for each trajectory.
 	 */
 	private double[] computeAvgOrientation(PartitionedGraph frames) {
 		double[] all_orientations = new double[frames.size()];
@@ -925,17 +973,16 @@ public class ProjectCommand implements Command {
 	/**
 	 * Method that plots a histogram.
 	 *
-	 * @param toplot array of data to plot
-	 * @param nbins number of bins of the histogram
-	 * @param title title of the plot
-	 * @param xlabel label on x axis
-	 * @param setXForAngle changing the x units to radians
+	 * @param toplot Array of data to plot.
+	 * @param nbins Number of bins of the histogram.
+	 * @param title Title of the plot.
+	 * @param xlabel Label on x axis.
+	 * @param setXForAngle Conversion factor to change x units to radians.
 	 */
 	private void histogram(double[] toplot, int nbins, String title, String xlabel, boolean setXForAngle){
 		double min = Arrays.stream(toplot).min().orElse(0);
 		double max = Arrays.stream(toplot).max().orElse(1);
 		double binWidth = (max - min) / nbins;
-//		int nbins = (int) Math.round((max - min)/binWidth);
 
 		// Initialize bins
 		double[] binCenters = new double[nbins];
@@ -966,11 +1013,11 @@ public class ProjectCommand implements Command {
 
 
 	/**
-	 * Method to create a point plot of the trajectories speed in time
+	 * Method to create a point plot of the trajectories speed in time.
 	 *
-	 * @param toplot data to plot
-	 * @param topN how many trajectories we plot
-	 * @param ylabel label of the y-axis
+	 * @param toplot Data to plot.
+	 * @param topN Number of trajectories we plot.
+	 * @param ylabel Label of the y-axis.
 	 */
 	private void pointPlot(TreeMap<Integer, TreeMap<Integer, Double>> toplot, int topN, String ylabel){
 		Plot plot = new Plot("Speeds from the Top " + topN + " Longest Trajectories", "Frames", ylabel);
@@ -985,213 +1032,6 @@ public class ProjectCommand implements Command {
 			plot.addPoints(timePoints, speeds, Plot.LINE); // Plot.LINE connects points
 		}
 		plot.show();
-	}
-
-
-	// Below are functions we coded, but we don't use anymore
-	/* TODO: decide whether we should keep them or not (for me we can delete them now, they are still accessible in the
-	    history of Gitlab)
-	 */
-
-
-	/**
-	 * This method applies a temporal median filter to a 32-bit time series.
-	 * For each frame in the time series, the function collects pixel values from neighboring
-	 * frames within a specified radius, computes the median per pixel across this temporal
-	 * window, and subtracts the median from the current frame.
-	 * Only single-slice, single-channel, 32-bit time series are supported.
-	 *
-	 * @param imp     The ImagePlus input expected to be a 32-bit image with one slice, one channel and multiple frames
-	 * @param title   Title of the output image
-	 * @param radius  Radius of the temporal window in frames (e.g. a radius of 4 uses 9 frame if available)
-	 * @return A new ImagePlus containing the temporally filtered frames
-	 * @throws IllegalArgumentException if the input is not 32-bit float, or has more than one slice or channel
-	 */
-	private ImagePlus temporalMedianFilter(ImagePlus imp, String title, int radius) {
-		// Throw errors the image given is not 32-bit and if there are more than one slice or channels
-		if (imp.getType() != ImagePlus.GRAY32)
-			throw new IllegalArgumentException("Input must be a 32-bit float image stack.");
-		if (imp.getNChannels() != 1 || imp.getNSlices() != 1)
-			throw new IllegalArgumentException("Only single-slice, single-channel time series supported.");
-
-		int w = imp.getWidth(), h = imp.getHeight();
-		int nFrames = imp.getNFrames();
-		ImageStack stack = imp.getStack().duplicate();
-		ImageStack result = new ImageStack(w, h);
-
-		// Loop over time frames to collect frames in temporal window
-		for (int t = 1; t <= nFrames; t++) {
-			List<float[]> window = new ArrayList<>();
-			for (int dt = -radius; dt <= radius; dt++) {
-				int ti = t + dt;
-				if (ti >= 1 && ti <= nFrames) {
-					int index = imp.getStackIndex(1, 1, ti);
-					window.add((float[]) stack.getProcessor(index).getPixels()); // store frame pixel array
-				}
-			}
-
-			float[] input = (float[]) stack.getProcessor(imp.getStackIndex(1, 1, t)).getPixels();
-			float[] output = new float[w * h];
-
-			// Pixel-wise median subtraction
-			for (int i = 0; i < w * h; i++) {
-				float[] values = new float[window.size()];
-				for (int j = 0; j < window.size(); j++) values[j] = window.get(j)[i];
-				Arrays.sort(values);
-				float median = values[values.length / 2];
-				output[i] = input[i] - median; // here chatgpt advised clipping results to have non-negative values
-				// but I don't see the point in our case : it was done with this command: Math.max(0, input[i] - median)
-			}
-			result.addSlice(new FloatProcessor(w, h, output)); // store the filtered frame
-		}
-		return new ImagePlus(title, result);
-	}
-
-
-	/**
-	 * This method computes the desired intensity projection on the t axis on the ImagePlus input
-	 * to increase contrast and exposure time of the original image. It is done so by a sliding window
-	 * that takes the total amount of frames 2*window + 1 centered around the considered frame and sums them.
-	 *
-	 * @param imp ImagePlus input
-	 * @param title title we want to give to the results
-	 * @param typeOfProjection the type of projection we want, can be "max", "min, "sum", "sd", etc
-	 * @param window_place either 'left', 'middle' or 'right' determines the location of the window with respect to the frame
-	 * @param window number of frames/2 that we want to be projected
-	 * @return ImagePlus where the sliding window projection has been done
-	 */
-	private ImagePlus temporalProjection(ImagePlus imp, String title, String typeOfProjection, String window_place, int window){
-		int nFrames = imp.getNFrames();
-		ImagePlus copy = imp.duplicate();
-		ImageStack results = new ImageStack(imp.getWidth(), imp.getHeight());
-
-		for(int t=1; t<= nFrames; t++){
-			copy.setPosition(1,1, t);
-
-			if(Objects.equals(window_place, "middle")){
-				int start = Math.max(1, t - window/2);
-				int end = Math.min(nFrames, t + window/2);
-				// Run temporal max projection
-				ImageProcessor ip = ZProjector.run(copy, typeOfProjection, start, end).getProcessor();
-				results.addSlice("Frame " + t, ip);
-			} else if (Objects.equals(window_place, "left")) {
-				int start = Math.max(1, t - window);
-				// Run temporal max projection
-				ImageProcessor ip = ZProjector.run(copy, typeOfProjection, start, t).getProcessor();
-				results.addSlice("Frame " + t, ip);
-			}else if (Objects.equals(window_place, "right")){
-				int end = Math.min(nFrames, t + window);
-				// Run temporal max projection
-				ImageProcessor ip = ZProjector.run(copy, typeOfProjection, t, end).getProcessor();
-				results.addSlice("Frame " + t, ip);
-			}
-		}
-
-		ImagePlus resultImp = new ImagePlus(title, results);
-		resultImp.setDimensions(1, 1, nFrames);
-		resultImp.setOpenAsHyperStack(true);
-
-		return  resultImp;
-	}
-
-
-	/**
-	 * This method extracts a set of frames around a given time point, according to the specified window size and
-	 * placement, and performs an intensity projection (e.g., max, min, sum, standard deviation) across those frames
-	 * to increase contrast and exposure time.
-	 *
-	 * @param imp ImagePlus input
-	 * @param typeOfProjection the type of projection to perform; accepted values include "max", "min", "sum", "sd", etc
-	 * @param window_place determines how the projection window is placed relative to the current time frame;
-	 *  *                  accepted values are "left", "middle", or "right"
-	 * @param window number of frames/2 that we want to be projected
-	 * @return ImageProcessor resulting from the temporal projection over the selected window
-	 */
-	private ImageProcessor temporalProjectionFrame(ImagePlus imp, int t, String typeOfProjection, String window_place, int window){
-		int nFrames = imp.getNFrames();
-		ImagePlus copy = imp.duplicate();
-
-		ImageStack results = new ImageStack(imp.getWidth(), imp.getHeight());
-
-		copy.setPosition(1,1, t);
-		int start= 0;
-		int end= 0;
-
-		if(Objects.equals(window_place, "middle")){
-			start = Math.max(1, t - window/2);
-			end = Math.min(nFrames, t + window/2);
-
-		} else if (Objects.equals(window_place, "left")) {
-			start = Math.max(1, t - window);
-			end = t;
-		}else if (Objects.equals(window_place, "right")){
-			start = t;
-			end = Math.min(nFrames, t + window);
-		}
-
-		for (int i =start; i<=end; i++){
-			imp.setPosition(1,1,i);
-			results.addSlice(imp.getProcessor().duplicate());
-		}
-
-		ImagePlus temp = new ImagePlus("temp", results);
-		ImageProcessor projection = ZProjector.run(temp, typeOfProjection).getProcessor();
-		temp.close();
-
-		return projection;
-	}
-
-
-	/**
-	 * This method performs an intensity projection across all frames of the input. In our case, it is used to highlight
-	 * microtubules' trajectories over the whole time series.
-	 *
-	 * @param imp ImagePlus input
-	 * @param typeOfProjection the type of projection to perform; accepted values include "max", "min", "sum", "sd", etc
-	 * @return ImagePlus resulting from the intensity projection across all frames
-	 */
-	private ImagePlus totalProjection(ImagePlus imp, String typeOfProjection){
-		return ZProjector.run(imp,typeOfProjection);
-	}
-
-
-	/**
-	 * For each time frame, this method computes the cumulative difference between the current frame and a window of
-	 * previous frames of a chosen size. In our case, each resulting slice represents the fluorescent protein motion over
-	 * a chosen time-lapse.
-	 *
-	 * @param imp ImagePlus input
-	 * @param title the title of the resulting projected image
-	 * @param windowSize the number of previous frames to include in the difference calculation
-	 * @return ImagePlus with teh temporal difference for each frame
-	 */
-	private ImagePlus temporalDifference(ImagePlus imp, String title, int windowSize) {
-		int nFrames = imp.getNFrames();
-		ImageStack results = new ImageStack(imp.getWidth(), imp.getHeight());
-
-		for (int t = 1; t <= nFrames; t++) {
-			int start = Math.max(1, t - windowSize);
-			int end = t;
-
-			imp.setPosition(1, 1, t);
-			ImageProcessor current = imp.getProcessor().duplicate();
-			for(int i = start; i <end; i++){
-				imp.setPosition(1, 1, i);
-				ImageProcessor previous = imp.getProcessor().duplicate();
-				current.copyBits(previous, 0, 0, Blitter.SUBTRACT);
-				previous = null; // freeing up memory
-			}
-
-			results.addSlice("Δ Frame " + t, current);
-			current = null ; // freeing up memory
-			System.gc();  // Encourage cleanup
-		}
-
-		ImagePlus resultImp = new ImagePlus(title, results);
-		resultImp.setDimensions(1, 1, nFrames );
-		resultImp.setOpenAsHyperStack(true);
-
-		return resultImp;
 	}
 
 

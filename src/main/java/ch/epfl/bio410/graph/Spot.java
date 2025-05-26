@@ -5,10 +5,10 @@ package ch.epfl.bio410.graph;
  * The Spot class represents a point-like object detected in an image sequence.
  */
 public class Spot {
-	public int x;
-	public int y;
-	public int t;
-	public double value = 0;
+	public int x; // x-coordinate
+	public int y; // y-coordinate
+	public int t; // frame number
+	public double value = 0; // associated pixel intensity value
 
 
 	/**

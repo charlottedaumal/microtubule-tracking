@@ -16,7 +16,7 @@ import java.util.function.Function;
  */
 public class TemporalDifferencer implements Function<ImageProcessor, ImageProcessor> {
     private final ImagePlus imp; // full stack
-    private final int window;
+    private final int window; // window size for the temporal difference
     private int frameIdx = 0; // will advance automatically
 
 

@@ -8,9 +8,9 @@ package ch.epfl.bio410.graph;
  * between direction vectors, which are useful for comparing motion directions.
  */
 public class DirectionVector {
-    public final double dx;
-    public final double dy;
-    public final Spot spot;
+    public final double dx; // x-component of the direction vector
+    public final double dy; // y-component of the direction vector
+    public final Spot spot; // origin of the direction vector
 
 
     /**
@@ -60,7 +60,7 @@ public class DirectionVector {
     public double cosineSimilarity(DirectionVector other) {
         double mag1 = norm();
         double mag2 = other.norm();
-        if (mag1 == 0 || mag2 == 0) return 0;
+        if (mag1 == 0 || mag2 == 0) return 0; // avoid division by zero if either vector is null
         return dot(other) / (mag1 * mag2);
     }
 }

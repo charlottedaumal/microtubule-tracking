@@ -10,10 +10,9 @@ import java.util.ArrayList;
  * to support tracking applications.
  */
 public class Spots extends ArrayList<Spot> {
-
     public Color color = Color.black; // base-color for all points of the same trajectory
-    public Color[] speed_color = new Color[this.size()]; // list of colors depending on their speeds, even though part of
-    // the same trajectory
+    // list of colors depending on their speeds, even though part of the same trajectory
+    public Color[] speed_color = new Color[this.size()];
 
 
     /**

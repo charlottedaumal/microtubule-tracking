@@ -195,7 +195,8 @@ public class ProjectCommand implements Command {
 				"Balanced with distance, direction, intensity and speed",
 		};
 		String[] legendOptions = {
-				"Do not display",
+				"Do not display for orientation coloring",
+				"Do not display for velocity coloring",
 				"Legend for orientation coloring",
 				"Legend for velocity coloring",
 		};
@@ -355,8 +356,13 @@ public class ProjectCommand implements Command {
 
 		// display a color map legend depending on the user choice
 		switch (choiceLegend) {
-			case "Do not display":
+			case "Do not display for orientation coloring":
 				cleanTraj.drawLines(final_imp, false);
+				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
+				final_imp.updateAndDraw();
+				break;
+			case "Do not display for velocity coloring":
+				cleanTraj.drawLines(final_imp, true);
 				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
 				final_imp.updateAndDraw();
 				break;

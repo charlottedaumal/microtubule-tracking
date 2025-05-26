@@ -854,14 +854,12 @@ public class ProjectCommand implements Command {
 
 		for(Spots trajectory : frames){
 			if (trajectory.size() < 2) continue; // make sure no division by zero happens
-
 			double avg_speed = 0.0;
 
 			// compute sum of speeds between each pair of consecutive Spot
 			for (int i = 0; i < trajectory.size() - 1; i++) {
 				Spot a = trajectory.get(i);
 				Spot b = trajectory.get(i + 1);
-
 				double speedAtoB = b.distance(a) / frameInterval; // speed from a to b
 				avg_speed += speedAtoB;
 			}
@@ -891,7 +889,6 @@ public class ProjectCommand implements Command {
 		for (int i = 0; i < trajectory.size() - 1; i++) {
 			Spot a = trajectory.get(i);
 			Spot b = trajectory.get(i + 1);
-			
 			double speedAtoB = b.distance(a) / frameInterval; // speed from a to b
 			trajectory_all_speeds[i+1] = speedAtoB*pixelToUm; // convert speed to micrometers per time unit and store it
 		}

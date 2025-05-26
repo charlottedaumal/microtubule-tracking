@@ -33,14 +33,14 @@ import java.util.List;
 public class ProjectCommand implements Command {
 
 	private double costmax = 0.5;
-	private double sigma ;  // sigma of the DoG
-	private double sigma1 ; // sigma1 of preprocessing : to remove background
-	private double sigma2 ; // sigma2 of preprocessing : what we want to keep from image
-	private int windowDiff =1; // size of window to delete continuous tracks
-	private double threshold ; // threshold of intensity to detect spots
-	private double lambda ; // weight of distance in cost computation
-	private double gamma ; // weight of direction in cost computation
-	private double kappa ;
+	private double sigma;  // sigma of the DoG
+	private double sigma1; // sigma1 of preprocessing : to remove background
+	private double sigma2; // sigma2 of preprocessing : what we want to keep from image
+	private int windowDiff = 1; // size of window to delete continuous tracks
+	private double threshold; // threshold of intensity to detect spots
+	private double lambda; // weight of distance in cost computation
+	private double gamma; // weight of direction in cost computation
+	private double kappa;
 
 	public void run() {
 
@@ -62,7 +62,7 @@ public class ProjectCommand implements Command {
 		};
 
 		// preprocessing
-		gd.addMessage("Preprocessing");
+		gd.addMessage(">> Preprocessing <<");
 		gd.addNumericField("Sigma1:", 5,2);
 		gd.addToSameRow();
 		gd.addNumericField("Sigma2:", 1.25,2);
@@ -144,7 +144,7 @@ public class ProjectCommand implements Command {
 		gd2.addMessage("=== Parameter Tuning Part II ===");
 
 		// segmentation
-		gd2.addMessage("Segmentation");
+		gd2.addMessage(">> Segmentation <<");
 		gd2.addNumericField("Sigma:", 1, 2);
 		gd2.addToSameRow();
 		gd2.addNumericField("Threshold", 5, 3);
@@ -172,7 +172,7 @@ public class ProjectCommand implements Command {
 		});
 
 		// tracking
-		gd2.addMessage("Tracking");
+		gd2.addMessage(">> Tracking <<");
 		gd2.addNumericField("Costmax:", 0.5, 3);
 		gd2.addToSameRow();
 		gd2.addNumericField("Lambda", 0.5, 3);
@@ -240,7 +240,7 @@ public class ProjectCommand implements Command {
 		//segmentation
 		sigma = gd2.getNextNumber();
 		threshold = gd2.getNextNumber();
-		boolean preview = gd2.getNextBoolean();
+		boolean preview = gd2.getNextBoolean(); // even if not used afterwards, needed for a correct GUI implementation
 
 		//tracking
 		costmax = gd2.getNextNumber();
@@ -373,7 +373,6 @@ public class ProjectCommand implements Command {
 				addLegend("Velocity track map (um/s)", true);
 				break;
 		}
-		// TODO also add a legend similar to color orientation for the speeds
 
 		// initializing the number of bins to plot the histograms
 		int nbins = Math.round(cleanTraj.size()/4);
@@ -388,8 +387,8 @@ public class ProjectCommand implements Command {
 		// display the speeds of the topN longest trajectories in a line plot depending
 		// on the user choice
 		if(choiceTopNSpeeds){
-			TreeMap<Integer, TreeMap<Integer, Double>> topNSpeeds = computeTopNSpeed(cleanTraj, frameInterval, topN);
-			pointPlot(topNSpeeds, topN, "Speed in "+unit+"/s");
+			TreeMap<Integer, TreeMap<Integer, Double>> topNSpeeds = computeTopNSpeed(cleanTraj, frameInterval, topN, pixelWidth);
+			linePlot(topNSpeeds, topN, "Speed in "+unit+"/s");
 		}
 
 		// display the average orientation of trajectories distribution over the entire stack
@@ -398,6 +397,7 @@ public class ProjectCommand implements Command {
 			double[] orientations = computeAvgOrientation(cleanTraj);
 			histogram(orientations, nbins, "Average Orientation Distribution of Microtubules", "Orientation in radians", true);
 		}
+
 	}
 
 
@@ -406,6 +406,7 @@ public class ProjectCommand implements Command {
 	 */
 	@FunctionalInterface
 	interface ImageProcessorFunction {
+		// apply a transformation to an ImageProcessor and returns the result
 		ImageProcessor apply(ImageProcessor ip);
 	}
 
@@ -421,7 +422,7 @@ public class ProjectCommand implements Command {
 		ImageStack newStack = new ImageStack(imp.getWidth(), imp.getHeight());
 
 		for (int i = 1; i <= imp.getStackSize(); i++) {
-			ImageProcessor ip = imp.getStack().getProcessor(i);
+			ImageProcessor ip = imp.getStack().getProcessor(i); // get the ImageProcessor for the current slice
 			ImageProcessor result = func.apply(ip);  // call passed function
 			newStack.addSlice(result);
 			System.gc();  // encourage cleanup
@@ -429,7 +430,7 @@ public class ProjectCommand implements Command {
 
 		ImagePlus resultImp = new ImagePlus("Processed", newStack);
 		resultImp.setDimensions(1, 1, imp.getStackSize());
-		resultImp.setOpenAsHyperStack(true);
+		resultImp.setOpenAsHyperStack(true); // ensure the stack is treated as a hyperstack
 
 		return resultImp;
 	}
@@ -444,12 +445,15 @@ public class ProjectCommand implements Command {
 	 * @return A DoG processor.
 	 */
 	private ImageProcessor classic_dog(ImageProcessor ip, double sigma) {
+		// duplicate the input image twice for two different levels of Gaussian blur
 		ImagePlus g1 = new ImagePlus("g1", ip.duplicate());
 		ImagePlus g2 = new ImagePlus("g2", ip.duplicate());
-		double sigma2 = (Math.sqrt(2) * sigma);
+
+		double sigma2 = (Math.sqrt(2) * sigma); // compute sigma for the second Gaussian
 		GaussianBlur3D.blur(g1, sigma, sigma, 0);
 		GaussianBlur3D.blur(g2, sigma2, sigma2, 0);
-		ImagePlus dog = ImageCalculator.run(g1, g2, "Subtract create stack");
+		ImagePlus dog = ImageCalculator.run(g1, g2, "Subtract create stack"); // performing DoG
+
 		return dog.getProcessor();
 	}
 
@@ -465,11 +469,14 @@ public class ProjectCommand implements Command {
 	 * @return ImageProcessor of the DoG filtered image.
 	 */
 	private ImageProcessor dog(ImageProcessor ip, double sigma1, double sigma2 ) {
+		// duplicate the input image twice for two different levels of Gaussian blur
 		ImagePlus g1 = new ImagePlus("g1", ip.duplicate());
 		ImagePlus g2 = new ImagePlus("g2", ip.duplicate());
+
+		// here sigma 2 is given as parameter and not computed from sigma 1
 		GaussianBlur3D.blur(g1, sigma1, sigma1, 0);
 		GaussianBlur3D.blur(g2, sigma2, sigma2, 0);
-		ImagePlus dog = ImageCalculator.run(g2, g1, "Subtract create stack");
+		ImagePlus dog = ImageCalculator.run(g2, g1, "Subtract create stack"); // performing DoG
 
 		return dog.getProcessor();
 	}
@@ -483,10 +490,13 @@ public class ProjectCommand implements Command {
 	 */
 	private ImageProcessor normalisation(ImageProcessor ip){
 		ImagePlus frame = new ImagePlus("f",ip.duplicate());
+
 		ImageStatistics statistics = frame.getStatistics();
 		double std = statistics.stdDev;
 		double mean = statistics.mean;
-		if (std == 0) std = 1; // Avoid division by zero
+		if (std == 0) std = 1; // avoid division by zero
+
+		// normalize pixel intensity values
 		IJ.run(frame, "Subtract...", "value="+mean+" slice");
 		IJ.run(frame, "Divide...", "value="+std+" slice");
 
@@ -510,21 +520,25 @@ public class ProjectCommand implements Command {
 	 */
 	public Spots localMax(ImageProcessor dog, ImageProcessor image, int t, double threshold) {
 		Spots spots = new Spots();
+
 		// going through the image pixel by pixel
 		for (int x = 1; x < dog.getWidth() - 1; x++) {
 			for (int y = 1; y < dog.getHeight() - 1; y++) {
 				double valueImage = image.getPixelValue(x, y);
-				// compare value of the pixel to the threshold
+
+				// compare value of the current pixel to the threshold
 				if (valueImage >= threshold) {
 					// if above the threshold we get the corresponding pixel value after applying the DoG filter
 					double v = dog.getPixelValue(x, y);
 					double max = -1;
-					// check neighbor pixels of the detected pixel above the threshold
+
+					// check neighboring pixels of the detected pixel above the threshold
 					for (int k = -1; k <= 1; k++) // k=-1,0,1
 						for (int l = -1; l <= 1; l++) // l=-1,0,1
-							// we save the maximum value between the 9 pixels centered around the pixel above the threshold found
+							// save the maximum value between the 9 pixels centered around the current pixel above the threshold
 							max = Math.max(max, dog.getPixelValue(x + k, y + l));
-					// if the pixel in the center is the max between the 9 pixels then we add a Spot to the list
+
+					// if the pixel in the center is the max between the 9 pixels, then we add it as a Spot to the list
 					if (v == max) spots.add(new Spot(x, y, t, valueImage));
 				}
 			}
@@ -546,16 +560,17 @@ public class ProjectCommand implements Command {
 	 * @return Graph that contains the spots detected.
 	 */
 	private PartitionedGraph detect(ImagePlus imp, double sigma, double threshold, boolean user_choice) {
-
 		int nt = imp.getNFrames();
-		new ImagePlus("DoG", classic_dog(imp.getProcessor(), sigma));
 		PartitionedGraph graph = new PartitionedGraph();
-		for (int t = 0; t < nt; t++) {
+
+		for (int t = 0; t < nt; t++) { // loop through all frames
 			imp.setPosition(1, 1, 1+t);
 			ImageProcessor ip = imp.getProcessor();
-			ImageProcessor dog = classic_dog(ip, sigma);
-			Spots spots = localMax(dog, ip, t, threshold);
-			graph.add(spots);
+			ImageProcessor dog = classic_dog(ip, sigma); // apply classic dog to the given ImagePlus
+			Spots spots = localMax(dog, ip, t, threshold); // detect local maxima in DoG image that exceed the threshold
+			graph.add(spots); // add the detected spots to the graph
+
+			// display the number of local max on each stack frame
 			if (user_choice) {
 				IJ.log("Frame t:" + t + " #localmax:" + spots.size() );
 			}
@@ -580,35 +595,43 @@ public class ProjectCommand implements Command {
 	 */
 	private PartitionedGraph directionalTracking(PartitionedGraph frames, AbstractDirCost cost, int dimension, boolean user_choice, boolean speed) {
 		PartitionedGraph trajectories = new PartitionedGraph();
-		for (Spots frame : frames) {
-			for (Spot spot : frame) {
-				Spots trajectory = trajectories.getPartitionOf(spot);
+
+		for (Spots frame : frames) { // iterate over all frames
+			for (Spot spot : frame) { // iterate over all spots in the current frame
+				Spots trajectory = trajectories.getPartitionOf(spot); // get the trajectory this spot is already part of
+
+				// if it's not part of any trajectory yet, create a new one
 				if (trajectory == null) trajectory = trajectories.createPartition(spot);
-				if (spot.equals(trajectory.last())) {
+
+				if (spot.equals(trajectory.last())) { // start tracking only from the last spot of a trajectory
 					int t0 = spot.t;
-					for (int t=t0; t < frames.size() - 1; t++) {
+
+					for (int t=t0; t < frames.size() - 1; t++) { // extend the trajectory to future frames
 						double trajectory_cost = this.costmax; // set the first cost value to be the highest possible
-						Spot next_spot = null; // we first initialize the next_spot to be null
+						Spot next_spot = null; // // store best match for the next frame (initialized to null)
+
 						for(Spot next : frames.get(t+1)) { // iterate over all spots of the next frame
 							if(speed) {
-								if (cost.validate_withSpeed(next, spot, frames, dimension) == true) {
-									// if the new cost is less than the previous one we save the spot
+								// if speed constraint is used, validate and evaluate methods taking speed into account
+								if (cost.validate_withSpeed(next, spot, frames, dimension) == true) { // if the cost is lesser than the costmax
+									// if the new cost is less than the previous one, we save the spot
 									trajectory_cost = cost.evaluate_withSpeed(next, spot, frames, dimension);
 									next_spot = next;
 								}
 							}else{
+								// otherwise, use cost validate and evaluate methods not taking speed into account
 								if (cost.validate(next, spot, frames, dimension) == true) { // if the cost is lesser than the costmax
-									// if the new cost is less than the previous one we save the spot
+									// if the new cost is less than the previous one, we save the spot
 									trajectory_cost = cost.evaluate(next, spot, frames, dimension);
 									next_spot = next;
 								}
 							}
 						}
+
 						if (next_spot != null) { // check that we found a next spot to add to the trajectory
-							// after iteration over all spots on next frame, final spot is saved in next spot
-							trajectory.add(next_spot);
+							trajectory.add(next_spot); // final spot is saved in next spot
 							spot = next_spot;
-							if(user_choice){
+							if(user_choice){ // display the chosen spot and its associated cost
 								IJ.log("#" + trajectories.size() + " spot " + next_spot + " with a cost:" + trajectory_cost);
 							}
 						} else {
@@ -633,13 +656,15 @@ public class ProjectCommand implements Command {
 	 * @return Partitioned Graph containing trajectories only longer than the chosen threshold.
 	 */
 	private PartitionedGraph cleaningTrajectories(PartitionedGraph frames, int min_length){
-		// trying to clean up minimal trajectories to lighten memory load
 		PartitionedGraph final_graph = new PartitionedGraph();
+
+		// clean up minimal trajectories to lighten memory load
 		for (Spots trajectory : frames){
 			if (trajectory.size() > min_length){
 				final_graph.add(trajectory);
 			}
 		}
+
 		return final_graph;
 	}
 
@@ -654,7 +679,7 @@ public class ProjectCommand implements Command {
 	 * @return The angle in radians in the range [-π, π].
 	 */
 	public double getOrientation(double dx, double dy){
-		return Math.atan2(dy, dx); // in radians
+		return Math.atan2(dy, dx); // angle in radians
 	}
 
 
@@ -670,7 +695,8 @@ public class ProjectCommand implements Command {
 	public double getOrientation(Spot start, Spot end){
 		double dx = end.x - start.x;
 		double dy = end.y - start.y;
-		return getOrientation(dx,dy);
+
+		return getOrientation(dx,dy); // compute orientation angle of the vector between the two given spots
 	}
 
 
@@ -681,9 +707,12 @@ public class ProjectCommand implements Command {
 	 * @return Color object being the new color corresponding to the orientation.
 	 */
 	private Color mapColor(double orientation){
+		// convert angle from [-π, π] to a normalized hue value [0, 1]
 		float hue = (float) ((orientation + Math.PI) / (2 * Math.PI));
+		// create a fully saturated and bright color from the hue (with HSB color model)
 		Color color = Color.getHSBColor(hue, 1f, 1f);
-		color = new Color(color.getRed(), color.getGreen(), color.getBlue(), 120);
+		color = new Color(color.getRed(), color.getGreen(), color.getBlue(), 120); // make color semi-transparent
+
 		return color;
 	}
 
@@ -696,14 +725,15 @@ public class ProjectCommand implements Command {
 	 * @param input The input Partitioned Graph containing trajectories.
 	 */
 	private void colorOrientation(PartitionedGraph input){
-		for(Spots trajectory : input) {// looping through all the trajectories
+		for(Spots trajectory : input) { // loop through all the trajectories
 
-			Spot first_spot = trajectory.get(0);
-			Spot last_spot = trajectory.get(trajectory.size()-1);
+			Spot first_spot = trajectory.first();
+			Spot last_spot = trajectory.last();
 
+			// compute the orientation angle from first to last spot
 			double orientation = getOrientation(first_spot, last_spot);
-			Color newColor = mapColor(orientation);
-			trajectory.color = newColor;
+			Color newColor = mapColor(orientation); // map the orientation angle to a specific color
+			trajectory.color = newColor; // assign the computed color to the entire trajectory
 		}
 	}
 
@@ -718,12 +748,13 @@ public class ProjectCommand implements Command {
 	 * @param input The input PartitionedGraph containing trajectories.
 	 */
 	private void colorOrientationAverage(PartitionedGraph input) {
-		for (Spots trajectory : input) {
-			if (trajectory.size() < 2) continue; // to make sure no division by zero happens
+		for (Spots trajectory : input) { // loop through all trajectories
+			if (trajectory.size() < 2) continue; // make sure no division by zero happens
 
 			double sumOrientation = 0;
 			int count = 0;
 
+			// compute orientation between all consecutive spot pairs
 			for (int i = 0; i < trajectory.size() - 1; i++) {
 				Spot a = trajectory.get(i);
 				Spot b = trajectory.get(i + 1);
@@ -731,29 +762,60 @@ public class ProjectCommand implements Command {
 				count++;
 			}
 
-			double avgOrientation = sumOrientation / count;
-			Color newColor = mapColor(avgOrientation);
-			trajectory.color = newColor;
+			double avgOrientation = sumOrientation / count; // compute average orientation across the trajectory
+			Color newColor = mapColor(avgOrientation); // map the average orientation to a color
+			trajectory.color = newColor; // assign the color to the entire trajectory
 		}
 	}
 
 
 	/**
-	 * Method to map the value of the speed to a color gradient (red to blue).
+	 * This method computes the average orientation of trajectories within a graph.
+	 *
+	 * @param frames Graph with all trajectories.
+	 * @return Array of average orientations for each trajectory.
+	 */
+	private double[] computeAvgOrientation(PartitionedGraph frames) {
+		double[] all_orientations = new double[frames.size()];
+		int j = 0;
+
+		for (Spots trajectory : frames) {
+			if (trajectory.size() < 2) continue; // make sure no division by zero happens
+
+			double sumOrientation = 0;
+
+			// compute orientation angles between all consecutive pairs of Spots
+			for (int i = 0; i < trajectory.size() - 1; i++) {
+				Spot a = trajectory.get(i);
+				Spot b = trajectory.get(i + 1);
+				sumOrientation += getOrientation(a, b);
+			}
+			// compute and store average orientation angle
+			all_orientations[j] = sumOrientation / (trajectory.size() - 1);
+			++j;
+		}
+
+		return all_orientations;
+	}
+
+
+	/**
+	 * This method maps the value of the speed to a color gradient (red to blue).
 	 *
 	 * @param speed Value of the speed to map.
 	 * @return Color corresponding to the given speed value.
 	 */
 	private Color mapSpeedColor(double speed){
-		double maxSpeed = 4;
-		// for red - blue mapping
+		double maxSpeed = 4; // upper bound for speed scaling
+		// normalize speed and invert hue: 0 → blue (0.66), maxSpeed → red (0.0)
 		float hue = 0.66f - 0.66f * Math.min((float)speed / (float)maxSpeed, 1.0f);
-		// gradient mapping
-//		float hue = (float) Math.min(speed / maxSpeed, 1.0);  // normalize and clamp to [0,1]
-		Color color = Color.getHSBColor((float) hue, 1f, 1f);
-		color = new Color(color.getRed(), color.getGreen(), color.getBlue(), 120);
+		// create a fully saturated and bright color from the hue (with HSB color model)
+		Color color = Color.getHSBColor(hue, 1f, 1f);
+		color = new Color(color.getRed(), color.getGreen(), color.getBlue(), 120); // make color semi-transparent
+
 		return color;
 	}
+
 
 	/**
 	 * This method colors the spots in the trajectories based on their speed.
@@ -763,15 +825,115 @@ public class ProjectCommand implements Command {
 	 * @param pixelToUm The conversion factor from pixel to micrometers.
 	 */
 	private void colorSpeed(PartitionedGraph input, double frameInterval, double pixelToUm){
-		for(Spots trajectory : input) {
-			double[] speeds = computeTrajectorySpeeds(trajectory, frameInterval, pixelToUm);
+		for(Spots trajectory : input) { // loop over each trajectory in the graph
 			trajectory.initSpeedColor();
 
+			// compute the speed between each pair of consecutive spots
+			double[] speeds = computeTrajectorySpeeds(trajectory, frameInterval, pixelToUm);
+
+			// map each speed to a color and store it
 			for (int i=0; i < speeds.length; ++i){
 				Color speedColor = mapSpeedColor(speeds[i]);
 				trajectory.speed_color[i] = speedColor;
 			}
 		}
+	}
+
+
+	/**
+	 * This method computes the average speed of a trajectory for all frames within a partitioned graph.
+	 *
+	 * @param frames Graph that contains all the trajectories.
+	 * @param frameInterval Time interval between two frames.
+	 * @param pixelToUm Conversion factor for pixel to um.
+	 * @return All the average speeds for all the trajectories in a list.
+	 */
+	private double[] computeAvgSpeed(PartitionedGraph frames, double frameInterval, double pixelToUm){
+		double[] all_speeds = new double[frames.size()];
+		int j = 0;
+
+		for(Spots trajectory : frames){
+			if (trajectory.size() < 2) continue; // make sure no division by zero happens
+
+			double avg_speed = 0.0;
+
+			// compute sum of speeds between each pair of consecutive Spot
+			for (int i = 0; i < trajectory.size() - 1; i++) {
+				Spot a = trajectory.get(i);
+				Spot b = trajectory.get(i + 1);
+
+				double speedAtoB = b.distance(a) / frameInterval; // speed from a to b
+				avg_speed += speedAtoB;
+			}
+			// normalize by the number of segments and convert to micrometers
+			avg_speed = avg_speed / (trajectory.size()-1);
+			all_speeds[j] = avg_speed*pixelToUm;
+			++j;
+		}
+
+		return all_speeds;
+	}
+
+
+	/**
+	 * This method computes all the instantaneous speeds for each point of a given trajectory. First speed is set to zero.
+	 *
+	 * @param trajectory The trajectory we want to compute the speeds for.
+	 * @param frameInterval The time interval between two frames.
+	 * @param pixelToUm The conversion factor from pixel to um.
+	 * @return An array that contains all the speeds in the trajectory, of same size as the number of spots in the trajectory.
+	 */
+	private double[] computeTrajectorySpeeds(Spots trajectory, double frameInterval, double pixelToUm){
+		double[] trajectory_all_speeds = new double[trajectory.size()];
+		trajectory_all_speeds[0] = 0; // first element has no previous point to compare, speed is set to 0
+
+		// loop through trajectory and compute speed between each pair of Spot
+		for (int i = 0; i < trajectory.size() - 1; i++) {
+			Spot a = trajectory.get(i);
+			Spot b = trajectory.get(i + 1);
+			
+			double speedAtoB = b.distance(a) / frameInterval; // speed from a to b
+			trajectory_all_speeds[i+1] = speedAtoB*pixelToUm; // convert speed to micrometers per time unit and store it
+		}
+
+		return trajectory_all_speeds;
+	}
+
+
+	/**
+	 * This method computes the instantaneous speeds for the top N trajectories.
+	 *
+	 * @param frames Graph containing all the trajectories.
+	 * @param frameInterval Time interval between two frames.
+	 * @param topN The number of longest trajectories we want to compute.
+	 * @return All the instantaneous speeds for the top N trajectories.
+	 */
+	private TreeMap<Integer, TreeMap<Integer, Double>> computeTopNSpeed(PartitionedGraph frames, double frameInterval, int topN, double pixelToUm){
+		TreeMap<Integer, TreeMap<Integer, Double>> speedMap = new TreeMap<>();
+		PartitionedGraph trajToCompute = new PartitionedGraph();
+
+		// sort trajectories by size in ascending order
+		frames.sort(Comparator.comparingInt(traj -> traj.size()));
+		// select the top-N longest trajectories (from the end of the sorted list)
+		for(int i = frames.size() - 1; i > frames.size() - 1 - topN; --i){
+			trajToCompute.add(frames.get(i));
+		}
+
+		int trajId = 0;
+		// store speed values starting from second spot (first speed is for transition from 0 to 1)
+		for(Spots trajectory : trajToCompute){
+			TreeMap<Integer, Double> trajSpeeds = new TreeMap<>();
+			double[] speeds = computeTrajectorySpeeds(trajectory, frameInterval, pixelToUm);
+
+			for (int i = 1; i < trajectory.size(); i++) {
+				Spot b = trajectory.get(i);
+				trajSpeeds.put(b.t, speeds[i]); // speed from previous spot to b
+			}
+			++trajId;
+			speedMap.put(trajId, trajSpeeds); // store trajectory's speed map by ID
+		}
+
+		return speedMap;
 	}
 
 
@@ -790,8 +952,9 @@ public class ProjectCommand implements Command {
 		int labelHeight = 60; // extra height for labels and title
 		int totalHeight = legendHeight + labelHeight;
 
+		// create a blank color image
 		ImageProcessor legendIp = new ColorProcessor(legendWidth, totalHeight);
-		legendIp.setColor(Color.WHITE); // Fill background with white
+		legendIp.setColor(Color.WHITE); // fill background with white
 		legendIp.fill();
 
 		if(withSpeed){
@@ -841,137 +1004,7 @@ public class ProjectCommand implements Command {
 
 
 	/**
-	 * Method that computes the average speed of a trajectory for all frames within a partitioned graph
-	 *
-	 * @param frames graph that contains all the trajectories
-	 * @param frameInterval time interval between two frames
-	 * @param pixelToUm conversion factor for pixel to um
-	 * @return all the average speeds for all the trajectories in a list
-	 */
-	private double[] computeAvgSpeed(PartitionedGraph frames, double frameInterval, double pixelToUm){
-		double[] all_speeds = new double[frames.size()];
-		int j = 0;
-
-		for(Spots trajectory : frames){
-			if (trajectory.size() < 2) continue; // to make sure no division by zero happens
-
-			double avg_speed = 0.0;
-
-			for (int i = 0; i < trajectory.size() - 1; i++) {
-				Spot a = trajectory.get(i);
-				Spot b = trajectory.get(i + 1);
-
-				double dx     = b.x - a.x;
-				double dy     = b.y - a.y;
-				double speedAtoB = Math.sqrt(dx*dx + dy*dy ) / frameInterval; // speed from a to b
-
-				avg_speed += speedAtoB;
-			}
-			avg_speed = avg_speed / (trajectory.size()-1);
-			all_speeds[j] = avg_speed*pixelToUm;
-			++j;
-		}
-		return all_speeds;
-	}
-
-
-	/**
-	 * Method that computes all the instantaneous speed for each point of a given trajectory. First speed is set to zero.
-	 *
-	 * @param trajectory The trajectory we want to compute the speeds for.
-	 * @param frameInterval The time interval between two frames.
-	 * @param pixelToUm The conversion factor from pixel to um.
-	 * @return An array that contains all the speeds in the trajectory, of same size as the number of spots in the trajectory.
-	 */
-	private double[] computeTrajectorySpeeds(Spots trajectory, double frameInterval, double pixelToUm){
-		double[] trajectory_all_speeds = new double[trajectory.size()];
-
-		trajectory_all_speeds[0] = 0;
-		for (int i = 0; i < trajectory.size() - 1; i++) {
-			Spot a = trajectory.get(i);
-			Spot b = trajectory.get(i + 1);
-
-			double dx     = b.x - a.x;
-			double dy     = b.y - a.y;
-			double speedAtoB = Math.sqrt(dx*dx + dy*dy ) / frameInterval; // speed from a to b
-
-			trajectory_all_speeds[i+1] = speedAtoB*pixelToUm;
-		}
-
-		return trajectory_all_speeds;
-	}
-
-
-	/**
-	 * Computes the instantaneous speeds for the top N trajectories.
-	 *
-	 * @param frames Graph containing all the trajectories.
-	 * @param frameInterval Time interval between two frames.
-	 * @param topN The number of longest trajectories we want to compute.
-	 * @return All the instantaneous speeds for the top N trajectories.
-	 */
-	private TreeMap<Integer, TreeMap<Integer, Double>> computeTopNSpeed(PartitionedGraph frames, double frameInterval, int topN){
-		TreeMap<Integer, TreeMap<Integer, Double>> speedMap = new TreeMap<>();
-
-		frames.sort(Comparator.comparingInt(traj -> traj.size()));
-
-		PartitionedGraph trajToCompute = new PartitionedGraph();
-
-		for(int i=frames.size()-1; i > frames.size() - 1 -topN; --i){
-			trajToCompute.add(frames.get(i));
-		}
-
-		int trajId = 0;
-		for(Spots trajectory : trajToCompute){
-			// TODO adapt with new function computeTrajectorySpeed
-			TreeMap<Integer, Double> trajSpeeds = new TreeMap<>();
-
-			for (int i = 0; i < trajectory.size() - 1; i++) {
-				Spot a = trajectory.get(i);
-				Spot b = trajectory.get(i + 1);
-
-				double dx     = b.x - a.x;
-				double dy     = b.y - a.y;
-				double speedAtoB = Math.sqrt(dx*dx + dy*dy ) / frameInterval; // speed from a to b
-
-				trajSpeeds.put(b.t, speedAtoB);
-			}
-			++trajId;
-			speedMap.put(trajId, trajSpeeds);
-		}
-		return speedMap;
-	}
-
-
-	/**
-	 * Computes the average orientation of trajectories within a graph.
-	 *
-	 * @param frames Graph with all trajectories.
-	 * @return Array of average orientations for each trajectory.
-	 */
-	private double[] computeAvgOrientation(PartitionedGraph frames) {
-		double[] all_orientations = new double[frames.size()];
-		int j = 0;
-
-		for (Spots trajectory : frames) {
-			if (trajectory.size() < 2) continue; // to make sure no division by zero happens
-
-			double sumOrientation = 0;
-
-			for (int i = 0; i < trajectory.size() - 1; i++) {
-				Spot a = trajectory.get(i);
-				Spot b = trajectory.get(i + 1);
-				sumOrientation += getOrientation(a, b);
-			}
-			all_orientations[j] = sumOrientation / (trajectory.size() - 1);
-			++j;
-		}
-		return all_orientations;
-	}
-
-
-	/**
-	 * Method that plots a histogram.
+	 * This method plots a histogram.
 	 *
 	 * @param toplot Array of data to plot.
 	 * @param nbins Number of bins of the histogram.
@@ -984,26 +1017,26 @@ public class ProjectCommand implements Command {
 		double max = Arrays.stream(toplot).max().orElse(1);
 		double binWidth = (max - min) / nbins;
 
-		// Initialize bins
+		// initialize bins
 		double[] binCenters = new double[nbins];
 		double[] frequencies = new double[nbins];
 		for (int i = 0; i < nbins; i++) {
 			binCenters[i] = min + binWidth * (i + 0.5);
 		}
 
-		// Fill frequencies
+		// fill frequencies
 		for (double value : toplot) {
 			int bin = (int) ((value - min) / binWidth);
 			if (bin >= nbins) bin = nbins - 1;  // Handle max edge
 			frequencies[bin]++;
 		}
 
-		// Create and show plot
+		// create and show plot
 		Plot plot = new Plot(title, xlabel, "Frequency");
-		if(setXForAngle){
+		if(setXForAngle){ // if plotting a histogram for orientation angles
 			plot.setLimits(-Math.PI, Math.PI, 0, Arrays.stream(frequencies).max().orElse(1));
 			plot.setColor(Color.RED);
-		}else{
+		}else{ // if plotting a histogram for speeds
 			plot.setLimits(min, max, 0, Arrays.stream(frequencies).max().orElse(1));
 			plot.setColor(Color.BLUE);
 		}
@@ -1013,23 +1046,26 @@ public class ProjectCommand implements Command {
 
 
 	/**
-	 * Method to create a point plot of the trajectories speed in time.
+	 * This method creates a line plot of the trajectories speed in time.
 	 *
 	 * @param toplot Data to plot.
 	 * @param topN Number of trajectories we plot.
 	 * @param ylabel Label of the y-axis.
 	 */
-	private void pointPlot(TreeMap<Integer, TreeMap<Integer, Double>> toplot, int topN, String ylabel){
+	private void linePlot(TreeMap<Integer, TreeMap<Integer, Double>> toplot, int topN, String ylabel){
 		Plot plot = new Plot("Speeds from the Top " + topN + " Longest Trajectories", "Frames", ylabel);
 
+		// loop through each trajectory's data
 		for (Map.Entry<Integer, TreeMap<Integer, Double>> entry : toplot.entrySet()) {
 			TreeMap<Integer, Double> trajSpeeds = entry.getValue();
 
+			// convert TreeMap keys and values to arrays for plotting
 			double[] timePoints = trajSpeeds.keySet().stream().mapToDouble(t -> t).toArray();
 			double[] speeds = trajSpeeds.values().stream().mapToDouble(s -> s).toArray();
 
-			plot.setColor(Color.getHSBColor((float) entry.getKey() / toplot.size(), 1f, 1f)); // optional: color per trajectory
-			plot.addPoints(timePoints, speeds, Plot.LINE); // Plot.LINE connects points
+			// assign a unique hue to each trajectory based on its ID
+			plot.setColor(Color.getHSBColor((float) entry.getKey() / toplot.size(), 1f, 1f));
+			plot.addPoints(timePoints, speeds, Plot.LINE); // add the trajectory's points to the plot as a line
 		}
 		plot.show();
 	}

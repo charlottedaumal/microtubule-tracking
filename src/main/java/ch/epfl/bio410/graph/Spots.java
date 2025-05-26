@@ -43,4 +43,15 @@ public class Spots extends ArrayList<Spot> {
         if (size() <= 0 ) return null;
         return get(size()-1);
     }
+
+
+    /**
+     * This method returns the first Spot in the list, or null if the list is empty.
+     *
+     * @return The most recently added Spot, or null if the list is empty.
+     */
+    public Spot first() {
+        if (size() <= 0 ) return null;
+        return get(0);
+    }
 }

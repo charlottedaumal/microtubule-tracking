@@ -5,6 +5,7 @@
 This plugin has been developed to allow for a fast and efficient way to 
 track fluorescently tagged EB-3 proteins in a cell to study microtubule dynamics.
 In this plugin was included : 
+- Method to increase the contrast with temporal summing of frames
 - Segmentation and tracking algorithm of the microtubules
 - Methods to compute the average or instantaneous speed and orientation of extending microtubules 
 - Quantitative plots generation of speed and orientation distributions
@@ -17,7 +18,7 @@ Install the .jar file named ## name ## into your `Fiji.app > plugins` folder and
 finish the installation of the plugin.
 ## name of the file
 
-This does not require any additionnal package or dependencies to work aside from the core ImageJ functionalities.
+This does not require any additional package or dependencies to work aside from the core ImageJ functionalities.
 
 ### Plugin data
 This plugin was designed to segment and track microtubules extending. It was 
@@ -30,7 +31,7 @@ a few assumptions were made in the tracking, mainly being :
 - EB3 comets do not change directions and have no curvature 
 
 
-> Any type of file (8, 16 or 32-bits) is accepted. The image should be a 2D stack, with a time axis.
+> Any type of file (8, 16 or 32-bits) is accepted. The image should be a 2D stack, with a time axis. 
 > The speed units computed are only correct for input data where the scale of pixels is the 
 > same in x and y directions.
 
@@ -42,10 +43,9 @@ plugin menu in `BII>MiTrack`.
 
 1) Select the file you want to analyze.
     > 📝 **NOTE:** Please convert your image to grayscale first. 
-
-2) Choose the parameters you require (see how to choose your parameter list below).
-3) Select Display & Debugging options.
-
+2) Apply the Preprocessing parameters you want to enhance your image
+3) Then select the Segmentation and Tracking parameters fit to your application
+4) Finally select Display & Debugging options.
 
 
 > **⏰** Please note that depending on the size of the file you run, 
@@ -54,11 +54,11 @@ plugin menu in `BII>MiTrack`.
 > the time of execution of the code **may vary**. 
 
 
-### Choosing the parameters 
+### How to choose the right parameters ? 
 Here is a short description of the different parameters of the plugin, with 
 specific recommendations of values. 
 
-#### Preprocessing parameters:
+#### 1) Preprocessing parameters:
 As a preprocessing of the image, we propose to increase EB3 comets visualisation by projecting frames on a sliding 
 window along the time axis. The type of projection we use here is equivalent to the "sum" ZProjector on Fiji. 
 We also use a DoG filter to remove background and increase contrast of the structures of interest. A median filtering 
@@ -66,16 +66,22 @@ of radius 1 is then applied to have sharper images without impacting the objects
 tuned specifically to your image to improve visualisation in the following ways :
 - `sigma1` : parameter of the gaussian blur to remove the background structure.
 - `sigma2` : parameter of the gaussian blur to keep the structures of interest. 
-- `number of frames` : parameter to select the number of frames that will be added to increase
-    the contrast. We typically recommend values between 1 and 5 to avoid over-saturation of pixels.
+    > To visualise this intermediate result, please select the option `Display` in the Preprocessed Stack menu
+- `WindowExp` : parameter to select the number of frames that will be added to increase
+    the contrast. We typically recommend values between 1 and 3 to avoid over-saturation of pixels.
 
+> [!NOTE] testtt 
+> 
 > 💡 **TIP:** To increase contrast between microtubules signal and background,
   temporal addition of frames is **strongly recommended**. Select the temporal
   exposure parameter to select how many frames are summed to increase the contrast.
 
 
-#### Segmentation parameters:
-Our segmentation approach is based on local maxima detection using a DoG filter and depends on the 
+
+#### 2) Segmentation parameters:
+To segment the image easily, we implemented a function that subtracts the previous frame to the current frame to transform 
+the comet streaks into point corresponding to the head of the comet.
+Our segmentation approach is then based on local maxima detection using a DoG filter and depends on the 
 following parameters :
 - `sigma` : segmentation is based on a classical 
 DoG filter that approximates a LoG filter. This sigma
@@ -85,10 +91,20 @@ size of the microtubule objects (ranging from 1 to a few pixels)
     > 💡 **TIP:** Gaussian blur affects
     > an area of approximately 6 * sigma in size (3 sigma radius in each direction).
 
-- `threshold` : The intensity value above which a microtubule is detected. 
+- `threshold` : The intensity value above which a microtubule is detected, **applied to the `Temporal Projection` 
+image**.
+    > 💡 **TIP:** to select an appropriate threshold, let your mouse hover above the dots on the `Temporal Projection` 
+    > image to find a good threshold to separate the microtubule dots from the background. Use the `Preview Detection`
+    > button to visualize how good your segmentation parameters are.
     
-#### Tracking Parameters:
-Tracking is done based on the assumptions we have stated above, with parameters described below :
+#### 3) Tracking Parameters:
+Tracking is done based on the assumptions we have stated above, with the parameters described below :
+
+> First select the tracking method that you want to use : either with or without a cost applied to instanteneous changes
+> in the microtubule speed. To study dynamics, not using speeds in the cost is preferable to avoid bias in the data. 
+> However, do note that the tracking will be less effective and accurate as adding this condition allows to prevent 
+> tracking together different but close-by trajectories that go in the same direction.
+
 - `costmax` : the maximum cost we allow for tracking together two spots of two succeeding frames. 
 It can take any value. You should tune this parameter depending on the trajectories you obtain : too many 
 aberrant trajectories, reduce the costmax ; too few trajectories appear, increase the costmax.
@@ -99,9 +115,26 @@ aberrant trajectories, reduce the costmax ; too few trajectories appear, increas
 > Note that the intensity difference between two spots also plays a part in linking them together during the 
 > tracking assignment. Intensity difference carries a weight of `1-lambda-gamma-kappa`.
 
-### Display & Debugging options 
+### 4) Results options 
+Here you can select different display options and collect data from the tracking results. 
 
-# here explain what display options we have ex. color orientation legend etc
+- Coloring of the trajectories: 
+  - Randomly 
+  - According to Speed : color of the trajectories represent the instantaneous speed at every frame.
+  - According to the Orientation : 
+    Either using the Global orientation (computed from the first and last point of the trajectory) or the average local
+    orientation computed between every pair of following points in the trajectory. 
+> You can select which legend you want to see, corresponding to the different coloring options.
+
+- Results : 
+  - The average speed distribution : a histogram plot that contains all the average speed of the trajectories 
+  - The speed evolution against time : to visualize speed changes dynamics of the top `N` longest trajectories
+  - The average orientation distribution : a histogram plot that contains all the global average orientations for all
+    the trajectories. 
+
+### 5) And finally the Advanced Options !
+This serves as a debugging method to show all the intermediate results and prints of the algorithm to allow 
+for problem-solving.
 
 ## 🛸 Expected outputs 
 

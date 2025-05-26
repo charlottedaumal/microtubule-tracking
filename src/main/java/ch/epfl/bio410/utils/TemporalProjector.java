@@ -15,11 +15,12 @@ import ij.process.ImageProcessor;
  * image where each slice is a projection of its temporal neighborhood.
  */
 public class TemporalProjector implements java.util.function.Function<ImageProcessor,ImageProcessor> {
-    private final ImagePlus imp;          // the full movie
-    private final String projType;     // "max", "min", "avg", …
-    private final String windowPlace;  // "middle", "left", "right"
-    private final int windowSize;   // in frames
+    private final ImagePlus imp; // full stack
+    private final String projType; // "max", "min", "avg", …
+    private final String windowPlace; // "middle", "left", "right"
+    private final int windowSize; // in frames
     private int currentFrame = 0; // will be updated externally
+
 
     /**
      * Constructor of the class.
@@ -31,11 +32,12 @@ public class TemporalProjector implements java.util.function.Function<ImageProce
      * @param windowSize The number of frames included in the temporal projection window.
      */
     public TemporalProjector(ImagePlus imp, String projType, String windowPlace, int windowSize) {
-        this.imp         = imp;
-        this.projType    = projType;
+        this.imp = imp;
+        this.projType = projType;
         this.windowPlace = windowPlace;
-        this.windowSize  = windowSize;
+        this.windowSize = windowSize;
     }
+
 
     /**
      * This method applies the temporal projection to the next frame in the stack.
@@ -50,6 +52,7 @@ public class TemporalProjector implements java.util.function.Function<ImageProce
         ++currentFrame;
         return projectFrame(currentFrame);
     }
+
 
     /**
      * This method performs the temporal projection over a window of frames centered (or offset) around frame t.
@@ -80,6 +83,7 @@ public class TemporalProjector implements java.util.function.Function<ImageProce
             sub.addSlice(imp.getProcessor().duplicate());
         }
         ImagePlus tmp = new ImagePlus("sub", sub);
+        // run the Z projection on the sub-stack using the specified projection type
         ImageProcessor proj = ZProjector.run(tmp, projType).getProcessor();
         tmp.close();
 

@@ -18,17 +18,12 @@ import ch.epfl.bio410.utils.TrackingFunctions;
  * influences the cost of linking them over time.
  */
 public class DirectionCost implements AbstractDirCost {
-
     private double lambda = 0; // parameter for the intensity cost
     private double gamma = 0; // parameter for the direction cost
     private double kappa = 0; // parameter for the speed cost
     private double costMax = 0;
-
-    /** normalization distance */
-    private double normDist = 1;
-
-    /** normalization intensity */
-    private double normInt = 1;
+    private double normDist = 1; // normalization distance
+    private double normInt = 1; // normalization intensity
 
 
     /**
@@ -65,17 +60,20 @@ public class DirectionCost implements AbstractDirCost {
      */
     @Override
     public double evaluate(Spot a, Spot b, PartitionedGraph frames, int dimension) {
+        // distance
         double maxAllowedDistance = 10;
+        double distance = b.distance(a);
+        if (distance > maxAllowedDistance) return Double.POSITIVE_INFINITY;
 
+        // intensity
         double intensityDiff = Math.abs(a.value - b.value);
-        double distance = a.distance(b);
 
+        // direction
         DirectionVector dira = TrackingFunctions.findDirection(a, frames, dimension);
         DirectionVector dirb = TrackingFunctions.findDirection(b, frames, dimension);
         double directionSimilarity = dira.cosineSimilarity(dirb); // value between -1 and 1
 
-        if (distance > maxAllowedDistance) return Double.POSITIVE_INFINITY;
-
+        // final cost
         return this.lambda * distance / this.normDist +
                 this.gamma * (1 - Math.max(0, directionSimilarity)) +
                 (1 - this.lambda - this.gamma)*intensityDiff/this.normInt;
@@ -112,19 +110,15 @@ public class DirectionCost implements AbstractDirCost {
 
         // speed
         double speedA = dirA.norm() / dt; // speed at frame t
-        double dx     = b.x - a.x;
-        double dy     = b.y - a.y;
-        double speedB = Math.sqrt(dx*dx + dy*dy ) / dt; // speed from a to b
+        double speedB = b.distance(a) / dt; // speed from a to b
         // a large difference between previous speed and current speed is penalized
         double speedPenalty = Math.abs(speedB - speedA) / (speedA + 1e-6); // avoid division by zero
 
         // final cost
-        double cost = lambda *  distance / normDist  +
-                      gamma  *  angularPenalty +
-                      kappa  *  speedPenalty +
-                      (1.0 - lambda - gamma - kappa) * intensityDiff / normInt;
-
-        return cost;
+        return lambda *  distance / normDist  +
+                gamma  *  angularPenalty +
+                kappa  *  speedPenalty +
+                (1.0 - lambda - gamma - kappa) * intensityDiff / normInt;
     }
 
 
@@ -141,8 +135,10 @@ public class DirectionCost implements AbstractDirCost {
      */
     @Override
     public boolean validate(Spot a, Spot b, PartitionedGraph frames, int dimension) {
+        // reject the connection if either of the spots is null
         if (a == null) return false;
         if (b == null) return false;
+        // evaluate the cost of linking a to b; accept only if below the defined threshold
         return evaluate(a, b, frames, dimension) < costMax;
     }
 
@@ -160,8 +156,10 @@ public class DirectionCost implements AbstractDirCost {
      */
     @Override
     public boolean validate_withSpeed(Spot a, Spot b, PartitionedGraph frames, int dimension) {
+        // reject the connection if either of the spots is null
         if (a == null) return false;
         if (b == null) return false;
+        // evaluate the cost of linking a to b; accept only if below the defined threshold
         return evaluate_withSpeed(a, b, frames, dimension) < costMax;
     }
 }

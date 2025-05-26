@@ -6,7 +6,11 @@ import ch.epfl.bio410.graph.PartitionedGraph;
 import ch.epfl.bio410.graph.Spot;
 
 
+/**
+ * The TrackingFunctions class provides helper methods for trajectory analysis.
+ */
 public class TrackingFunctions {
+
 
     /**
      * This method computes the direction vector of a given Spot by comparing it to a spot
@@ -26,27 +30,28 @@ public class TrackingFunctions {
     public static DirectionVector findDirection(Spot spot, PartitionedGraph frames, int dimension) {
         Spot previousSpot = null;
         int halfDim = dimension / 2;
-        int tPrev = Math.max(spot.t - 1,1);
+        int tPrev = Math.max(spot.t - 1,1); // ensure we don’t go below frame 1
         double minDist = Double.MAX_VALUE;
 
+        // search for the nearest spot in the previous frame, within a window
         for (Spot other : frames.get(tPrev)) {
             if (other.t == tPrev) {
                 double dx = other.x - spot.x;
                 double dy = other.y - spot.y;
                 double dist = dx * dx + dy * dy;
 
+                // accept only if within the defined square window
                 if (dist < minDist && Math.abs(dx) <= halfDim && Math.abs(dy) <= halfDim) {
                     minDist = dist;
                     previousSpot = other;
                 }
             }
         }
-
+        // fallback to same position if no match found
         if (previousSpot == null) {
-            previousSpot = new Spot(spot.x, spot.y, tPrev, spot.value); // fallback
+            previousSpot = new Spot(spot.x, spot.y, tPrev, spot.value);
         }
 
         return new DirectionVector(spot.x - previousSpot.x, spot.y - previousSpot.y, spot);
     }
 }
-

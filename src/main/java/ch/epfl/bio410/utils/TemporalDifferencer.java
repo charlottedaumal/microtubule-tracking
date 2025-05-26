@@ -15,9 +15,10 @@ import java.util.function.Function;
  * from the current frame t. Here, this is useful to get single leading spots for each trajectory in the current frame t.
  */
 public class TemporalDifferencer implements Function<ImageProcessor, ImageProcessor> {
-    private final ImagePlus imp;   // full movie (not duplicated)
-    private final int       window;
-    private       int       frameIdx = 0;   // will advance automatically
+    private final ImagePlus imp; // full stack
+    private final int window;
+    private int frameIdx = 0; // will advance automatically
+
 
     /**
      * Constructor of the class.
@@ -26,9 +27,10 @@ public class TemporalDifferencer implements Function<ImageProcessor, ImageProces
      * @param window The number of preceding frames to subtract from the current frame.
      */
     public TemporalDifferencer(ImagePlus imp, int window) {
-        this.imp    = imp;
+        this.imp = imp;
         this.window = window;
     }
+
 
     /**
      * This method applies the temporal differencing operation to the current frame in the sequence. It is automatically
@@ -49,10 +51,10 @@ public class TemporalDifferencer implements Function<ImageProcessor, ImageProces
         imp.setPosition(1, 1, t);
         ImageProcessor delta = imp.getProcessor().duplicate();
 
-        // subtract previous frames in the window
+        // subtract all previous frames in the window from the current frame
         for (int i = start; i < t; i++) {
             imp.setPosition(1, 1, i);
-            ImageProcessor prev = imp.getProcessor();   // no duplicate needed
+            ImageProcessor prev = imp.getProcessor();
             delta.copyBits(prev, 0, 0, Blitter.SUBTRACT);
         }
 

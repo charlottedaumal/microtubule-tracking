@@ -52,7 +52,7 @@ Once the package has been installed, launch the plugin from the Fiji
 plugin menu in `BII>MiTrack`. 
 
 1) Select the file you want to analyze.
-    > 📝 **NOTE:** Please convert your image to grayscale first. 
+    > [!NOTE] 📝 NOTE: Please convert your image to grayscale first. 
 2) Apply the Preprocessing parameters you want to enhance your image
 3) Then select the Segmentation and Tracking parameters fit to your application
 4) Finally select Display & Debugging options.
@@ -90,7 +90,7 @@ tuned specifically to your image to improve visualisation in the following ways 
     the contrast. We typically recommend values between 1 and 3 to avoid over-saturation of pixels.
 
  
-> [!NOTE] 💡TIP:
+> [!TIP] 💡TIP:
 > To increase contrast between microtubules signal and background,
   temporal addition of frames is **strongly recommended**. Select the temporal
   exposure parameter to select how many frames are summed to increase the contrast.
@@ -106,18 +106,21 @@ DoG filter that approximates a LoG filter. This sigma
 controls the level of blur and edge detection applied
 by the DoG. It should be calibrated depending on the approximate 
 size of the microtubule objects (ranging from 1 to a few pixels)
-    > 💡 **TIP:** Gaussian blur affects
+    > [!TIP] 💡 TIP: 
+    > Gaussian blur affects
     > an area of approximately 6 * sigma in size (3 sigma radius in each direction).
 
 - `threshold` : The intensity value above which a microtubule is detected, **applied to the `Temporal Projection` 
 image**.
-    > 💡 **TIP:** to select an appropriate threshold, let your mouse hover above the dots on the `Temporal Projection` 
+    > [!TIP] 💡 TIP:
+    > To select an appropriate threshold, let your mouse hover above the dots on the `Temporal Projection` 
     > image to find a good threshold to separate the microtubule dots from the background. Use the `Preview Detection`
     > button to visualize how good your segmentation parameters are.
     
 #### 3) Tracking Parameters:
 Tracking is done based on the assumptions we have stated above, with the parameters described below :
 
+> [!NOTE]
 > First select the tracking method that you want to use : either with or without a cost applied to instantaneous changes
 > in the microtubule speed. To study dynamics, not using speeds in the cost is preferable to avoid bias in the data. 
 > However, do note that the tracking will be less effective and accurate as adding this condition allows to prevent 
@@ -130,6 +133,7 @@ aberrant trajectories, reduce the costmax ; too few trajectories appear, increas
 - `gamma`: the weight of the direction change between two spots to track them together.
 - `kappa`: the weight of the speed change between two spots to track them together. 
 
+> [!NOTE]
 > Note that the intensity difference between two spots also plays a part in linking them together during the 
 > tracking assignment. Intensity difference carries a weight of `1-lambda-gamma-kappa`.
 
@@ -142,7 +146,6 @@ Here you can select different display options and collect data from the tracking
   - According to the Orientation : 
     Either using the Global orientation (computed from the first and last point of the trajectory) or the average local
     orientation computed between every pair of following points in the trajectory. 
-> You can select which legend you want to see, corresponding to the different coloring options.
 
 - Results : 
   - The average speed distribution : a histogram plot that contains all the average speed of the trajectories 

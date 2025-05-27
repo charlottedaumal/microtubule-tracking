@@ -26,7 +26,6 @@ import org.scijava.plugin.Plugin;
 import javax.swing.*;
 import java.awt.*;
 import java.util.*;
-import java.util.List;
 
 
 @Plugin(type = Command.class, menuPath = "Plugins>BII>MiTrack")
@@ -53,16 +52,14 @@ public class ProjectCommand implements Command {
 
 		GenericDialog gd = new GenericDialog("Welcome to the MiTrack Plugin :)");
 
-		// parameter tuning part I section
-		gd.addMessage("=== Parameter Tuning Part I ===");
-
 		String[] displayOptions = {
 				"Do not display",
 				"Display",
 		};
 
 		// preprocessing
-		gd.addMessage(">> Preprocessing <<");
+		gd.addMessage(" 1. Preprocessing Parameters ");
+		gd.addMessage("");
 		gd.addNumericField("Sigma1:", 5,2);
 		gd.addToSameRow();
 		gd.addNumericField("Sigma2:", 1.25,2);
@@ -121,7 +118,7 @@ public class ProjectCommand implements Command {
 			case "Do not display":
 				break;
 			case "Display":
-				outputstack.setDisplayRange(0, outputstack.getStatistics().max);
+				outputstack.setDisplayRange(0, outputstack.getStatistics().max); // contrast enhancement for better display
 				outputstack.updateAndDraw();
 				outputstack.show();
 				break;
@@ -138,13 +135,10 @@ public class ProjectCommand implements Command {
 		tempDiff.updateAndDraw();
 		tempDiff.show();
 
-		NonBlockingGenericDialog gd2 = new NonBlockingGenericDialog("Select further parameters!");
-
-		// parameter tuning part II section
-		gd2.addMessage("=== Parameter Tuning Part II ===");
+		NonBlockingGenericDialog gd2 = new NonBlockingGenericDialog("Configure Plugin Settings");
 
 		// segmentation
-		gd2.addMessage(">> Segmentation <<");
+		gd2.addMessage(" 2. Segmentation ");
 		gd2.addNumericField("Sigma:", 1, 2);
 		gd2.addToSameRow();
 		gd2.addNumericField("Threshold", 5, 3);
@@ -170,19 +164,30 @@ public class ProjectCommand implements Command {
 			}
 			return true;
 		});
+		gd2.addMessage("");
 
 		// tracking
-		gd2.addMessage(">> Tracking <<");
+		gd2.addMessage(" 3. Tracking ");
+
+		String[] costOptions = {
+				"Not accounting for speed",
+				"Accounting for speed",
+		};
+
+		gd2.addChoice("Cost function: ", costOptions, costOptions[0]);
 		gd2.addNumericField("Costmax:", 0.5, 3);
 		gd2.addToSameRow();
 		gd2.addNumericField("Lambda", 0.5, 3);
 		gd2.addNumericField("Gamma", 0.3, 3);
 		gd2.addToSameRow();
 		gd2.addNumericField("Kappa", 0.15, 3);
+		TextField kappaField = (TextField) gd2.getNumericFields().lastElement(); // enabled only if the user chose
+		// cost function accounting for speed
+		kappaField.setEnabled(false);
 		gd2.addMessage("");
 
 		// results options
-		gd2.addMessage("=== Results options ===");
+		gd2.addMessage(" 4. Results options ");
 
 		String[] coloringOptions = {
 				"Random",
@@ -190,44 +195,35 @@ public class ProjectCommand implements Command {
 				"Average local orientation",
 				"Instantaneous velocity",
 		};
-		String[] costOptions = {
-				"Balanced with distance, direction and intensity",
-				"Balanced with distance, direction, intensity and speed",
-		};
-		String[] legendOptions = {
-				"Do not display for orientation coloring",
-				"Do not display for velocity coloring",
-				"Legend for orientation coloring",
-				"Legend for velocity coloring",
-		};
 
 		// trajectories determination and display
-		gd2.addChoice("Cost function", costOptions, costOptions[0]);
 		gd2.addChoice("Coloring of Trajectories", coloringOptions, coloringOptions[0]);
-		gd2.addToSameRow();
-		gd2.addChoice("Color map legend", legendOptions, legendOptions[0]);
 
 		// speeds
 		gd2.addCheckbox("Average speed distribution", false);
 		gd2.addToSameRow();
 		gd2.addCheckbox("Speed evolution from TopN longest trajectories", false);
 		gd2.addToSameRow();
-		gd2.addNumericField("Top:", 5, 0); // this will be enabled only if box is checked
-
-		TextField topNField = (TextField) gd2.getNumericFields().get(6); // get correct index
-		topNField.setEnabled(false); // initially off
-		gd2.addDialogListener(new DialogListener() {
-			public boolean dialogItemChanged(GenericDialog gd2, AWTEvent e) {
-				boolean isSpeedEvolutionChecked = ((Checkbox) gd2.getCheckboxes().get(2)).getState();
-				topNField.setEnabled(isSpeedEvolutionChecked);
-				return true;
-			}
-		});
+		gd2.addNumericField("Top:", 5, 0); // enabled only if the previous box is checked
+		TextField topNField = (TextField) gd2.getNumericFields().lastElement();
+		topNField.setEnabled(false);
 		gd2.addCheckbox("Average orientation distribution", false);
 		gd2.addMessage("");
 
+		// add a listener to dynamically respond to changes in the dialog
+		gd2.addDialogListener(new DialogListener() {
+			public boolean dialogItemChanged(GenericDialog gd2, AWTEvent e) {
+				String choiceCostFunction = gd2.getNextChoice();
+				boolean isAccountingForSpeed = choiceCostFunction.equals("Accounting for speed");
+				kappaField.setEnabled(isAccountingForSpeed); // enable Kappa field only if "Accounting for speed" is selected
+				boolean isSpeedEvolutionChecked = ((Checkbox) gd2.getCheckboxes().get(2)).getState();
+				topNField.setEnabled(isSpeedEvolutionChecked); // enable TopN numeric field only if the previous checkbox is selected
+				return true; // always return true to allow the dialog to continue updating
+			}
+		});
+
 		// advanced options
-		gd2.addMessage("=== Advanced Options ===");
+		gd2.addMessage(" 5. Advanced Options ");
 		gd2.addCheckbox("Display all", false);
 		gd2.addChoice("Detection of local max", displayOptions, displayOptions[0]);
 		gd2.addToSameRow();
@@ -244,15 +240,14 @@ public class ProjectCommand implements Command {
 		boolean preview = gd2.getNextBoolean(); // even if not used afterwards, needed for a correct GUI implementation
 
 		//tracking
+		String choiceCostFunction = gd2.getNextChoice();
 		costmax = gd2.getNextNumber();
 		lambda = gd2.getNextNumber();
 		gamma = gd2.getNextNumber();
 		kappa = gd2.getNextNumber();
 
 		// trajectories determination and display
-		String choiceCostFunc = gd2.getNextChoice();
 		String choiceColoring = gd2.getNextChoice();
-		String choiceLegend = gd2.getNextChoice();
 
 		// speeds
 		boolean choiceAvgSpeedDistrib = gd2.getNextBoolean();
@@ -315,11 +310,11 @@ public class ProjectCommand implements Command {
 		// depending on the user choice
 		AbstractDirCost cost = new DirectionCost(outputstack, costmax, lambda, gamma, kappa);
 		PartitionedGraph trajectoriesDiff = new PartitionedGraph();
-		switch (choiceCostFunc) {
-			case "Balanced with distance, direction and intensity":
+		switch (choiceCostFunction) {
+			case "Not accounting for speed":
 				trajectoriesDiff = directionalTracking(framesDiff, cost, dimension, userChoiceCosts, false);
 				break;
-			case "Balanced with distance, direction, intensity and speed":
+			case "Accounting for speed":
 				trajectoriesDiff = directionalTracking(framesDiff, cost, dimension, userChoiceCosts, true);
 				break;
 		}
@@ -333,50 +328,41 @@ public class ProjectCommand implements Command {
 		String unit = cal.getUnit();
 		double frameInterval = cal.frameInterval; // seconds per frame
 
-		// display one coloring for trajectories from four different options
+		// display one coloring for trajectories and its associated color map legend from four different options
 		// depending on the user choice
 		ImagePlus final_imp = tempDiff.duplicate();
+		double[] speeds = computeAvgSpeed(cleanTraj, frameInterval, pixelWidth);
+		double maxSpeed = Arrays.stream(speeds).max().orElse(Double.NaN);
 		switch (choiceColoring) {
 			case "Random":
 				final_imp.setTitle("with Random Coloring");
+				cleanTraj.drawLines(final_imp,false);
+				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
+				final_imp.updateAndDraw();
 				break;
 			case "Global average orientation":
 				final_imp.setTitle("with Coloring According to Global Average Orientation");
 				colorOrientation(cleanTraj);
+				cleanTraj.drawLines(final_imp,false);
+				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
+				final_imp.updateAndDraw();
+				addLegend("Orientation track map (rad)", false, maxSpeed);
 				break;
 			case "Average local orientation":
 				final_imp.setTitle("with Coloring According to Average Local Orientation");
 				colorOrientationAverage(cleanTraj);
-				break;
-			case "Instantaneous velocity":
-				final_imp.setTitle("with Coloring According to Instantaneous Velocities");
-				colorSpeed(cleanTraj, frameInterval, pixelWidth);
-				break;
-		}
-
-		// display a color map legend depending on the user choice
-		switch (choiceLegend) {
-			case "Do not display for orientation coloring":
-				cleanTraj.drawLines(final_imp, false);
-				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
-				final_imp.updateAndDraw();
-				break;
-			case "Do not display for velocity coloring":
-				cleanTraj.drawLines(final_imp, true);
-				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
-				final_imp.updateAndDraw();
-				break;
-			case "Legend for orientation coloring":
 				cleanTraj.drawLines(final_imp,false);
 				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
 				final_imp.updateAndDraw();
-				addLegend("Orientation track map (rad)", false);
+				addLegend("Orientation track map (rad)", false, maxSpeed);
 				break;
-			case "Legend for velocity coloring":
+			case "Instantaneous velocity":
+				final_imp.setTitle("with Coloring According to Instantaneous Velocities");
+				colorSpeed(cleanTraj, frameInterval, pixelWidth, maxSpeed);
 				cleanTraj.drawLines(final_imp, true);
 				final_imp.setDisplayRange(0, final_imp.getStatistics().max );
 				final_imp.updateAndDraw();
-				addLegend("Velocity track map (um/s)", true);
+				addLegend("Velocity track map (um/s)", true, maxSpeed);
 				break;
 		}
 
@@ -386,7 +372,6 @@ public class ProjectCommand implements Command {
 		// display average speed distribution of spots over the entire stack
 		// depending on the user choice
 		 if(choiceAvgSpeedDistrib){
-			 double[] speeds = computeAvgSpeed(cleanTraj, frameInterval, pixelWidth);
 			 histogram(speeds, nbins, "Average Speed Distribution of Microtubules", "Speed in "+unit+"/s", false);
 		 }
 
@@ -619,14 +604,14 @@ public class ProjectCommand implements Command {
 						for(Spot next : frames.get(t+1)) { // iterate over all spots of the next frame
 							if(speed) {
 								// if speed constraint is used, validate and evaluate methods taking speed into account
-								if (cost.validate_withSpeed(next, spot, frames, dimension) == true) { // if the cost is lesser than the costmax
+								if (cost.validate_withSpeed(next, spot, frames, dimension)) { // if the cost is lesser than the costmax
 									// if the new cost is less than the previous one, we save the spot
 									trajectory_cost = cost.evaluate_withSpeed(next, spot, frames, dimension);
 									next_spot = next;
 								}
 							}else{
 								// otherwise, use cost validate and evaluate methods not taking speed into account
-								if (cost.validate(next, spot, frames, dimension) == true) { // if the cost is lesser than the costmax
+								if (cost.validate(next, spot, frames, dimension)) { // if the cost is lesser than the costmax
 									// if the new cost is less than the previous one, we save the spot
 									trajectory_cost = cost.evaluate(next, spot, frames, dimension);
 									next_spot = next;
@@ -811,8 +796,7 @@ public class ProjectCommand implements Command {
 	 * @param speed Value of the speed to map.
 	 * @return Color corresponding to the given speed value.
 	 */
-	private Color mapSpeedColor(double speed){
-		double maxSpeed = 4; // upper bound for speed scaling
+	private Color mapSpeedColor(double speed, double maxSpeed){
 		// normalize speed and invert hue: 0 → blue (0.66), maxSpeed → red (0.0)
 		float hue = 0.66f - 0.66f * Math.min((float)speed / (float)maxSpeed, 1.0f);
 		// create a fully saturated and bright color from the hue (with HSB color model)
@@ -830,7 +814,7 @@ public class ProjectCommand implements Command {
 	 * @param frameInterval The time interval between two frames (to compute speed).
 	 * @param pixelToUm The conversion factor from pixel to micrometers.
 	 */
-	private void colorSpeed(PartitionedGraph input, double frameInterval, double pixelToUm){
+	private void colorSpeed(PartitionedGraph input, double frameInterval, double pixelToUm, double maxSpeed){
 		for(Spots trajectory : input) { // loop over each trajectory in the graph
 			trajectory.initSpeedColor();
 
@@ -839,7 +823,7 @@ public class ProjectCommand implements Command {
 
 			// map each speed to a color and store it
 			for (int i=0; i < speeds.length; ++i){
-				Color speedColor = mapSpeedColor(speeds[i]);
+				Color speedColor = mapSpeedColor(speeds[i], maxSpeed);
 				trajectory.speed_color[i] = speedColor;
 			}
 		}
@@ -949,7 +933,7 @@ public class ProjectCommand implements Command {
 	 *
 	 * @param legend_title Title for the color map legend.
 	 */
-	private void addLegend(String legend_title, boolean withSpeed) {
+	private void addLegend(String legend_title, boolean withSpeed, double maxSpeed) {
 		int legendWidth = 500;
 		int legendHeight = 50;
 		int labelHeight = 60; // extra height for labels and title
@@ -962,10 +946,9 @@ public class ProjectCommand implements Command {
 
 		if(withSpeed){
 			// draw color bar for speed
-			double maxSpeed = 5.0 ; // TODO: find a way to have maxSpeed robust and not hardcoded
 			for (int i = 0; i < legendWidth; i++) {
 				double speed = maxSpeed * i / (double) (legendWidth - 1);
-				Color c = mapSpeedColor(speed);
+				Color c = mapSpeedColor(speed, maxSpeed);
 				for (int j = 0; j < legendHeight; j++) {
 					legendIp.setColor(c);
 					legendIp.drawPixel(i, j);

@@ -40,7 +40,7 @@ a few assumptions were made in the tracking, mainly being :
 - EB3 comets do not change directions and have no curvature 
 
 
-> Any type of file (8, 16 or 32-bits) is accepted. The image should be a 2D stack, with a time axis. 
+> Any type of file (8, 16 or 32-bits) with a single channel is accepted. The image should be a 2D stack, with a time axis. 
 > The speed units computed are only correct for input data where the scale of pixels is the 
 > same in x and y directions.
 

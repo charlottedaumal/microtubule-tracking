@@ -120,7 +120,7 @@ image**.
 #### 3) Tracking Parameters:
 Tracking is done based on the assumptions we have stated above, with the parameters described below :
 
-> [!NOTE]
+> [!NOTE] 🖇️ Cost Options:
 > First select the tracking method that you want to use : either with or without a cost applied to instantaneous changes
 > in the microtubule speed. To study dynamics, not using speeds in the cost is preferable to avoid bias in the data. 
 > However, do note that the tracking will be less effective and accurate as adding this condition allows to prevent 
@@ -133,7 +133,7 @@ aberrant trajectories, reduce the costmax ; too few trajectories appear, increas
 - `gamma`: the weight of the direction change between two spots to track them together.
 - `kappa`: the weight of the speed change between two spots to track them together. 
 
-> [!NOTE]
+> [!NOTE] Intensity:
 > Note that the intensity difference between two spots also plays a part in linking them together during the 
 > tracking assignment. Intensity difference carries a weight of `1-lambda-gamma-kappa`.
 

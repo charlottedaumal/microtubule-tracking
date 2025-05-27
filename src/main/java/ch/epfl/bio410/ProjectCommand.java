@@ -381,7 +381,7 @@ public class ProjectCommand implements Command {
 		}
 
 		// initializing the number of bins to plot the histograms
-		int nbins = Math.round(cleanTraj.size()/4);
+		int nbins = Math.round(cleanTraj.size()/8);
 
 		// display average speed distribution of spots over the entire stack
 		// depending on the user choice

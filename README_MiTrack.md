@@ -11,6 +11,16 @@ In this plugin was included :
 - Quantitative plots generation of speed and orientation distributions
 - Coloring methods to visualise speed changes or orientation of the trajectories
 
+
+> [!WARNING] **Run time:** 
+> 
+> Please note that depending on the file you run and the amount of frames, the plugin may be slow.
+> For a 400 frames image, it may take up to a few minutes of runtime. Be also aware of the fact that the tracking is computationally 
+> intensive and thus require to access your RAM without limitations, which is why it may not work on IntelliJ directly 
+> because of the limited RAM access. 
+> If you encounter `Out-Of-Memory` error, try running the plugin on Fiji instead or increase the memory allocated to 
+> IntelliJ on your computer :) 
+
 ## ⚙️ How to use it ? 
 
 ### Installation
@@ -172,9 +182,27 @@ If satisfied with the segmentation, we can proceed with the final step, the trac
 
 Here we have the final trajectories, that can be colored with or without the color orientation map (as seen below).
 
-<img src="icons/trajectories.png" height=250px alt="image" > <img src="icons/trajectoriesColored.png" height=250px alt="image" >
+Random coloring : 
+
+<img src="icons/trajectories.png" height=300px alt="image" > 
+
+Coloring with the orientation or instantaneous speeds : 
+
+<img src="icons/trajectoriesColored.png" height=300px alt="image" > <img src="icons/trajectoriesVelocity.png" height=300'x alt="image" >
+
 
 ### Speed and orientation plots 
+
+Using the tracking data some plots that analyse quantitatively the trajectories and their dynamics can also be generated :
+
+Distribution of the average orientations : 
+
+<img src="icons/orientationDist.png" height=250px alt="image" >
+
+Distribution of the average speeds and speed dynamics against time for the top 5 longest trajectories :
+
+<img src="icons/averageSpeedDist.png" height=250 alt="image" > <img src="icons/instantSpeedTop5.png" height=250px alt="image" >
+
 
 
 

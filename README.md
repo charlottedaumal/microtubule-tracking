@@ -24,9 +24,8 @@ In this plugin was included :
 ## ⚙️ How to use it ? 
 
 ### Installation
-Install the .jar file named ## name ## into your `Fiji.app > plugins` folder and restart Fiji to 
+Install the .jar file named `eb-3-project-1.0.0.jar` into your `Fiji.app > plugins` folder and restart Fiji to 
 finish the installation of the plugin.
-## name of the file
 
 This does not require any additional package or dependencies to work aside from the core ImageJ functionalities.
 

@@ -3,9 +3,9 @@
 ## 📖 Description 
 
 This plugin has been developed to allow for a fast and efficient way to 
-track fluorescently tagged EB-3 proteins in a cell to study microtubule dynamics.
+track fluorescently tagged EB-3 proteins (End Binding protein 3) in a cell to study microtubule dynamics.
 In this plugin was included : 
-- Method to increase the contrast with temporal summing of frames
+- Methods to increase the contrast with temporal summing of frames
 - Segmentation and tracking algorithm of the microtubules
 - Methods to compute the average or instantaneous speed and orientation of extending microtubules 
 - Quantitative plots generation of speed and orientation distributions
@@ -71,7 +71,15 @@ specific recommendations of values.
 
 #### 1) Preprocessing parameters:
 As a preprocessing of the image, we propose to increase EB3 comets visualisation by projecting frames on a sliding 
-window along the time axis. The type of projection we use here is equivalent to the "sum" ZProjector on Fiji. 
+window along the time axis. The type of projection we use here is equivalent to the "sum" ZProjector on Fiji. Then to 
+segment the image easily, we implemented a function that subtracts the previous frame to the current frame to transform
+the comet streaks into point corresponding to the head of the comet.
+
+> [!IMPORTANT] Temporal Projection:
+> The temporal projection used to enhance our image takes the n-previous frames (as selected by the `WindowExp` parameter, 
+> see below). This means that the first n-frames are "sacrificed" for the final output, because they do not have 
+> the projection of the previous n frames as the other frames do. 
+
 We also use a DoG filter to remove background and increase contrast of the structures of interest. A median filtering 
 of radius 1 is then applied to have sharper images without impacting the objects structure too much. Select parameters 
 tuned specifically to your image to improve visualisation in the following ways :
@@ -90,13 +98,12 @@ tuned specifically to your image to improve visualisation in the following ways 
 
 
 #### 2) Segmentation parameters:
-To segment the image easily, we implemented a function that subtracts the previous frame to the current frame to transform 
-the comet streaks into point corresponding to the head of the comet.
+
 Our segmentation approach is then based on local maxima detection using a DoG filter and depends on the 
 following parameters :
 - `sigma` : segmentation is based on a classical 
 DoG filter that approximates a LoG filter. This sigma
-controls the level of of blur and edge detection applied
+controls the level of blur and edge detection applied
 by the DoG. It should be calibrated depending on the approximate 
 size of the microtubule objects (ranging from 1 to a few pixels)
     > 💡 **TIP:** Gaussian blur affects
@@ -111,7 +118,7 @@ image**.
 #### 3) Tracking Parameters:
 Tracking is done based on the assumptions we have stated above, with the parameters described below :
 
-> First select the tracking method that you want to use : either with or without a cost applied to instanteneous changes
+> First select the tracking method that you want to use : either with or without a cost applied to instantaneous changes
 > in the microtubule speed. To study dynamics, not using speeds in the cost is preferable to avoid bias in the data. 
 > However, do note that the tracking will be less effective and accurate as adding this condition allows to prevent 
 > tracking together different but close-by trajectories that go in the same direction.
@@ -189,7 +196,7 @@ Random coloring :
 
 Coloring with the orientation or instantaneous speeds : 
 
-<img src="icons/trajectoriesColored.png" height=300px alt="image" > <img src="icons/trajectoriesVelocity.png" height=300'x alt="image" >
+<img src="icons/trajectoriesColored.png" height=300px alt="image" > <img src="icons/trajectoriesVelocity.png" height=300px alt="image" >
 
 
 ### Speed and orientation plots 

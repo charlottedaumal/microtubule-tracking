@@ -12,7 +12,7 @@ In this plugin was included :
 - Coloring methods to visualise speed changes or orientation of the trajectories
 
 
-> [!WARNING] **Run time:** 
+> [!WARNING] Run time: 
 > 
 > Please note that depending on the file you run and the amount of frames, the plugin may be slow.
 > For a 400 frames image, it may take up to a few minutes of runtime. Be also aware of the fact that the tracking is computationally 
@@ -58,7 +58,8 @@ plugin menu in `BII>MiTrack`.
 4) Finally select Display & Debugging options.
 
 
-> **⏰** Please note that depending on the size of the file you run, 
+> [!WARNING] 
+> ⏰ Please note that depending on the size of the file you run, 
 > the different display options you selected and 
 > the parameters chosen to compute,
 > the time of execution of the code **may vary**. 
@@ -76,13 +77,13 @@ of radius 1 is then applied to have sharper images without impacting the objects
 tuned specifically to your image to improve visualisation in the following ways :
 - `sigma1` : parameter of the gaussian blur to remove the background structure.
 - `sigma2` : parameter of the gaussian blur to keep the structures of interest. 
-    > To visualise this intermediate result, please select the option `Display` in the Preprocessed Stack menu
+    > To visualise this intermediate result, please select the option `Display` in the Preprocessed Stack menu.
 - `WindowExp` : parameter to select the number of frames that will be added to increase
     the contrast. We typically recommend values between 1 and 3 to avoid over-saturation of pixels.
 
-> [!NOTE] testtt 
-> 
-> 💡 **TIP:** To increase contrast between microtubules signal and background,
+ 
+> [!NOTE] 💡TIP:
+> To increase contrast between microtubules signal and background,
   temporal addition of frames is **strongly recommended**. Select the temporal
   exposure parameter to select how many frames are summed to increase the contrast.
 

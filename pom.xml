@@ -13,7 +13,7 @@
 
     <groupId>ch.epfl.bio410</groupId>
     <artifactId>eb-3-project</artifactId> <!-- Replace the artifact id by your project name -->
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 
     <name>EB3 Microtubules Tracking</name> <!-- Replace the name & description by your project -->
     <description>Tracking of Microtubules End Binding Protein</description>

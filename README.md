@@ -19,9 +19,8 @@ In this plugin was included :
 - Coloring methods to visualise speed changes or orientation of the trajectories
 
 
-> [!WARNING]
-> Run time: 
-> Please note that depending on the file you run and the amount of frames, the plugin may be slow.
+> [!WARNING] 
+> ⏰ Please note that depending on the file you run and the amount of frames, the plugin may be slow.
 > For a 400 frames image, it may take up to a few minutes of runtime. Be also aware of the fact that the tracking is computationally 
 > intensive and thus require to access your RAM without limitations, which is why it may not work on IntelliJ directly 
 > because of the limited RAM access. 

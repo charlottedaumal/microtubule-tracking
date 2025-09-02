@@ -79,8 +79,7 @@ window along the time axis. The type of projection we use here is equivalent to 
 segment the image easily, we implemented a function that subtracts the previous frame to the current frame to transform
 the comet streaks into point corresponding to the head of the comet.
 
-> [!IMPORTANT] Temporal Projection:
-> The temporal projection used to enhance our image takes the n-previous frames (as selected by the `WindowExp` parameter, 
+> 🛎️ IMPORTANT NOTE: The temporal projection used to enhance our image takes the n-previous frames (as selected by the `WindowExp` parameter, 
 > see below). This means that the first n-frames are "sacrificed" for the final output, because they do not have 
 > the projection of the previous n frames as the other frames do. 
 
@@ -134,8 +133,7 @@ aberrant trajectories, reduce the costmax ; too few trajectories appear, increas
 - `gamma`: the weight of the direction change between two spots to track them together.
 - `kappa`: the weight of the speed change between two spots to track them together. 
 
-> Intensity:
-> Note that the intensity difference between two spots also plays a part in linking them together during the 
+> 📝 NOTE: the intensity difference between two spots also plays a part in linking them together during the 
 > tracking assignment. Intensity difference carries a weight of `1-lambda-gamma-kappa`.
 
 ### 4) Results options 

@@ -1,7 +1,7 @@
 # MiTrack : Tracking of Microtubule End Binding Protein 
 
 **Authors:** Gabrielle Blouvac & Charlotte Daumal   
-**Context:** This project was completed as part of the *Bioimage Informatics* course taught by Prof. Daniel Sage & Prof. Arne Seitz  
+**Context:** This project was completed as part of the *Bioimage Informatics* course taught by Prof. Daniel Sage & Prof. Arne Seitz at EPFL  
 **Language:** Java  
 **Date:** June 2025
 

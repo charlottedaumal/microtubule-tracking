@@ -1,5 +1,12 @@
 # 🦠 MiTrack : Tracking of Microtubule End Binding Protein 
 
+**Authors:** Gabrielle Blouvac & Charlotte Daumal   
+**Context:** This project was completed as part of the *Bioimage Informatics* course taught by Prof. Daniel Sage & Prof. Arne Seitz  
+**Language:** Java  
+**Date:** June 2025
+
+---
+
 ## 📖 Description 
 
 This plugin has been developed to allow for a fast and efficient way to 
@@ -19,7 +26,9 @@ In this plugin was included :
 > intensive and thus require to access your RAM without limitations, which is why it may not work on IntelliJ directly 
 > because of the limited RAM access. 
 > If you encounter `Out-Of-Memory` error, try running the plugin on Fiji instead or increase the memory allocated to 
-> IntelliJ on your computer :) 
+> IntelliJ on your computer :)
+
+---
 
 ## ⚙️ How to use it ? 
 
@@ -45,7 +54,6 @@ a few assumptions were made in the tracking, mainly being :
 > same in x and y directions.
 
 
-
 ### Step by step explanation
 Once the package has been installed, launch the plugin from the Fiji 
 plugin menu in `BII>MiTrack`. 
@@ -56,13 +64,11 @@ plugin menu in `BII>MiTrack`.
 3) Then select the Segmentation and Tracking parameters fit to your application
 4) Finally select Display & Debugging options.
 
-
 > [!WARNING] 
 > ⏰ Please note that depending on the size of the file you run, 
 > the different display options you selected and 
 > the parameters chosen to compute,
 > the time of execution of the code **may vary**. 
-
 
 ### How to choose the right parameters ? 
 Here is a short description of the different parameters of the plugin, with 
@@ -88,13 +94,10 @@ tuned specifically to your image to improve visualisation in the following ways 
 - `WindowExp` : parameter to select the number of frames that will be added to increase
     the contrast. We typically recommend values between 1 and 3 to avoid over-saturation of pixels.
 
- 
 > [!TIP] 💡TIP:
 > To increase contrast between microtubules signal and background,
   temporal addition of frames is **strongly recommended**. Select the temporal
   exposure parameter to select how many frames are summed to increase the contrast.
-
-
 
 #### 2) Segmentation parameters:
 
@@ -156,6 +159,8 @@ Here you can select different display options and collect data from the tracking
 This serves as a debugging method to show all the intermediate results and prints of the algorithm to allow 
 for problem-solving.
 
+---
+
 ## 🛸 Expected outputs 
 
 Here is a short description and examples of the kind of results we can obtain using MiTrack.
@@ -213,6 +218,10 @@ Distribution of the average speeds and speed dynamics against time for the top 5
 
 <img src="icons/averageSpeedDist.png" height=250 alt="image" > <img src="icons/instantSpeedTop5.png" height=250px alt="image" >
 
+---
 
+## License
 
+This project is for educational purposes.  
+Content © Gabrielle Blouvac & Charlotte Daumal. Academic use only.
 

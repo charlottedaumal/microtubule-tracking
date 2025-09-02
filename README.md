@@ -1,4 +1,4 @@
-# 🦠 MiTrack : Tracking of Microtubule End Binding Protein 
+# MiTrack : Tracking of Microtubule End Binding Protein 
 
 **Authors:** Gabrielle Blouvac & Charlotte Daumal   
 **Context:** This project was completed as part of the *Bioimage Informatics* course taught by Prof. Daniel Sage & Prof. Arne Seitz  
@@ -7,7 +7,7 @@
 
 ---
 
-## 📖 Description 
+## 📖 Project Overview 
 
 This plugin has been developed to allow for a fast and efficient way to 
 track fluorescently tagged EB-3 proteins (End Binding protein 3) in a cell to study microtubule dynamics.
@@ -19,8 +19,8 @@ In this plugin was included :
 - Coloring methods to visualise speed changes or orientation of the trajectories
 
 
-> [!WARNING] Run time: 
-> 
+> [!WARNING]
+> Run time: 
 > Please note that depending on the file you run and the amount of frames, the plugin may be slow.
 > For a 400 frames image, it may take up to a few minutes of runtime. Be also aware of the fact that the tracking is computationally 
 > intensive and thus require to access your RAM without limitations, which is why it may not work on IntelliJ directly 
@@ -59,7 +59,7 @@ Once the package has been installed, launch the plugin from the Fiji
 plugin menu in `BII>MiTrack`. 
 
 1) Select the file you want to analyze.
-    > [!NOTE] 📝 NOTE: Please convert your image to grayscale first. 
+    > 📝 NOTE: Please convert your image to grayscale first. 
 2) Apply the Preprocessing parameters you want to enhance your image
 3) Then select the Segmentation and Tracking parameters fit to your application
 4) Finally select Display & Debugging options.
@@ -94,7 +94,7 @@ tuned specifically to your image to improve visualisation in the following ways 
 - `WindowExp` : parameter to select the number of frames that will be added to increase
     the contrast. We typically recommend values between 1 and 3 to avoid over-saturation of pixels.
 
-> [!TIP] 💡TIP:
+> 💡 TIP:
 > To increase contrast between microtubules signal and background,
   temporal addition of frames is **strongly recommended**. Select the temporal
   exposure parameter to select how many frames are summed to increase the contrast.
@@ -108,13 +108,13 @@ DoG filter that approximates a LoG filter. This sigma
 controls the level of blur and edge detection applied
 by the DoG. It should be calibrated depending on the approximate 
 size of the microtubule objects (ranging from 1 to a few pixels)
-    > [!TIP] 💡 TIP: 
+    > 💡 TIP: 
     > Gaussian blur affects
     > an area of approximately 6 * sigma in size (3 sigma radius in each direction).
 
 - `threshold` : The intensity value above which a microtubule is detected, **applied to the `Temporal Projection` 
 image**.
-    > [!TIP] 💡 TIP:
+    > 💡 TIP:
     > To select an appropriate threshold, let your mouse hover above the dots on the `Temporal Projection` 
     > image to find a good threshold to separate the microtubule dots from the background. Use the `Preview Detection`
     > button to visualize how good your segmentation parameters are.
@@ -122,7 +122,7 @@ image**.
 #### 3) Tracking Parameters:
 Tracking is done based on the assumptions we have stated above, with the parameters described below :
 
-> [!NOTE] 🖇️ Cost Options:
+> 🖇️ Cost Options:
 > First select the tracking method that you want to use : either with or without a cost applied to instantaneous changes
 > in the microtubule speed. To study dynamics, not using speeds in the cost is preferable to avoid bias in the data. 
 > However, do note that the tracking will be less effective and accurate as adding this condition allows to prevent 
@@ -135,7 +135,7 @@ aberrant trajectories, reduce the costmax ; too few trajectories appear, increas
 - `gamma`: the weight of the direction change between two spots to track them together.
 - `kappa`: the weight of the speed change between two spots to track them together. 
 
-> [!NOTE] Intensity:
+> Intensity:
 > Note that the intensity difference between two spots also plays a part in linking them together during the 
 > tracking assignment. Intensity difference carries a weight of `1-lambda-gamma-kappa`.
 
@@ -161,11 +161,11 @@ for problem-solving.
 
 ---
 
-## 🛸 Expected outputs 
+## 🦠 Expected outputs 
 
 Here is a short description and examples of the kind of results we can obtain using MiTrack.
 
-### Preprocessing steps 
+### 1) Preprocessing steps 
 
 The original image we used was very noisy, with a bright background that impaired clear 
 visualisation of the microtubules' dynamics.
@@ -183,7 +183,7 @@ projection to increase intensity and render the comets closer to dots.
 
 <img src="icons/temporalProjection.png" height=300px alt="image" >
 
-### Segmentation 
+### 2) Segmentation 
 
 Now that we have preprocessed our image, we can go to the segmentation ! 
 
@@ -193,7 +193,7 @@ Segmentation detects individual objects and the results can be shown as such :
 
 If satisfied with the segmentation, we can proceed with the final step, the tracking of the objects trajectories. 
 
-### Final outputs 
+### 3) Visualization of trajectories
 
 Here we have the final trajectories, that can be colored with or without the color orientation map (as seen below).
 
@@ -206,7 +206,7 @@ Coloring with the orientation or instantaneous speeds :
 <img src="icons/trajectoriesColored.png" height=300px alt="image" > <img src="icons/trajectoriesVelocity.png" height=300px alt="image" >
 
 
-### Speed and orientation plots 
+### 4) Speed and orientation plots 
 
 Using the tracking data some plots that analyse quantitatively the trajectories and their dynamics can also be generated :
 
@@ -224,4 +224,3 @@ Distribution of the average speeds and speed dynamics against time for the top 5
 
 This project is for educational purposes.  
 Content © Gabrielle Blouvac & Charlotte Daumal. Academic use only.
-

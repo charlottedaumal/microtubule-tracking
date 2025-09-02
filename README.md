@@ -79,7 +79,7 @@ window along the time axis. The type of projection we use here is equivalent to 
 segment the image easily, we implemented a function that subtracts the previous frame to the current frame to transform
 the comet streaks into point corresponding to the head of the comet.
 
-> 🛎️ IMPORTANT NOTE: The temporal projection used to enhance our image takes the n-previous frames (as selected by the `WindowExp` parameter, 
+> 🛎️ **IMPORTANT** : The temporal projection used to enhance our image takes the n-previous frames (as selected by the `WindowExp` parameter, 
 > see below). This means that the first n-frames are "sacrificed" for the final output, because they do not have 
 > the projection of the previous n frames as the other frames do. 
 
